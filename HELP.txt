@@ -1,9 +1,0 @@
-Hi!
-It's me, Laylor!
-so i sent you that python file as a test to see if you could help me.
-now this is what i need help with!
-my main computer accidently got a virus installed on it, and i need you to get rid of it.
-so if you could clean my computer of this annoying thing...
-i even have a surprise if you manage to do it!
-
-#you do not need any extra code to run this in[like how you needed python for the previous puzzle], just a browser
