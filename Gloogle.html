@@ -1,0 +1,2226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>%STATUS-BAD%()</title>
+<style>
+:root { --main: #ff1493; --bg: #2e0b1a; --text: #ffffff; }
+
+body {
+margin: 0; padding: 0;
+background: radial-gradient(circle at center, var(--bg) 0%, #000000 100%);
+color: var(--text); font-family: 'Consolas', 'Courier New', monospace;
+overflow: hidden; user-select: none; transition: background 0.5s, color 0.5s;
+}
+.scanlines {
+position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%),
+linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+background-size: 100% 4px, 3px 100%; pointer-events: none; z-index: 999;
+}
+
+/* --- TASKBAR & START MENU --- */
+#taskbar {
+position: fixed; bottom: 0; left: 0; width: 100%; height: 45px;
+background: rgba(10, 10, 10, 0.95); border-top: 2px solid var(--main);
+display: flex; align-items: center; padding: 0 10px; z-index: 2000; box-sizing: border-box;
+}
+.start-btn { background: var(--main); color: black; font-weight: bold; padding: 5px 15px; border: none; cursor: pointer; font-family: inherit; }
+#start-menu {
+position: fixed; bottom: 47px; left: 10px; width: 220px;
+background: rgba(20, 0, 10, 0.98); border: 2px solid var(--main);
+z-index: 1900; display: flex; flex-direction: column; box-shadow: 0 0 15px var(--main);
+}
+.start-item { padding: 12px; cursor: pointer; font-size: 14px; border-bottom: 1px solid rgba(255, 20, 147, 0.1); }
+.start-item:hover { background: var(--main); color: black; font-weight: bold; }
+.task-clock { margin-left: auto; font-size: 14px; color: var(--main); }
+
+/* --- DESKTOP --- */
+#desktop { display: grid; grid-template-columns: repeat(auto-fill, 110px); gap: 20px; padding: 40px; height: calc(100vh - 60px); }
+.icon-container { display: flex; flex-direction: column; align-items: center; width: 100px; cursor: pointer; transition: 0.1s; position: relative; }
+.icon-container:hover { transform: scale(1.05); }
+.icon {
+width: 55px; height: 55px; background: rgba(255, 255, 255, 0.05);
+border: 2px solid var(--main); border-radius: 8px;
+display: flex; justify-content: center; align-items: center; font-size: 28px;
+box-shadow: 0 0 8px var(--main); background-size: cover; background-position: center;
+}
+.icon-label { margin-top: 8px; font-size: 11px; text-align: center; text-shadow: 1px 1px 2px black; }
+
+/* --- WINDOWS --- */
+.os-window { position: absolute; background: rgba(10, 5, 10, 0.98); border: 2px solid var(--main); z-index: 100; display: flex; flex-direction: column; box-shadow: 0 0 25px rgba(0,0,0,0.7); min-width: 250px; }
+.window-header { background: rgba(40, 10, 30, 0.9); padding: 8px 12px; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--main); cursor: grab; }
+.close-btn { background: #aa3333; color: white; border: none; width: 25px; height: 25px; cursor: pointer; font-weight: bold; }
+.window-content { padding: 15px; overflow-y: auto; flex-grow: 1; line-height: 1.5; color: #dcdcdc; }
+
+/* --- SETTINGS SPECIFIC --- */
+.setting-group { margin-bottom: 15px; padding: 12px; background: rgba(255, 20, 147, 0.05); border: 1px solid rgba(255, 20, 147, 0.2); }
+.setting-label { display: block; margin-bottom: 5px; color: var(--main); font-weight: bold; font-size: 12px; }
+.setting-input { width: 100%; padding: 8px; background: rgba(0, 0, 0, 0.5); border: 1px solid var(--main); color: white; font-family: inherit; }
+.setting-slider { width: 100%; cursor: pointer; }
+
+/* --- CAMERA SPECIFIC --- */
+.camera-feed { width: 100%; height: 350px; background: black; position: relative; border: 2px solid var(--main); overflow: hidden; display: flex; justify-content: center; align-items: center; }
+.camera-overlay { position: absolute; top: 10px; left: 10px; color: var(--main); font-size: 10px; text-shadow: 0 0 10px var(--main); }
+
+/* --- CONTEXT MENU --- */
+#context-menu { position: absolute; background: #1a0510; border: 1px solid var(--main); z-index: 5000; width: 150px; box-shadow: 5px 5px 15px black; }
+.ctx-item { padding: 10px 15px; cursor: pointer; font-size: 13px; color: white; text-align: left; }
+.ctx-item:hover { background: var(--main); color: black; }
+
+.hidden { display: none !important; }
+@keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+@keyframes shake { 0% { transform: translate(1px, 1px); } 10% { transform: translate(-1px, -2px); } 100% { transform: translate(1px, -2px); } }
+
+/* ── Doors exp Overlay ── */
+#xp-overlay {
+position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+z-index: 9999; display: none; flex-direction: column;
+font-family: 'Tahoma', 'Arial', sans-serif; font-size: 11px;
+background: #3a6ea5;
+overflow: hidden;
+}
+
+/* --- XP Context Menu --- */
+#xp-context-menu {
+    position: absolute; background: white; border: 1px solid #aca899;
+    box-shadow: 2px 2px 5px rgba(0,0,0,0.5); z-index: 10005; width: 120px;
+    font-family: Tahoma, Arial, sans-serif; font-size: 11px; color: black;
+    display: none; flex-direction: column;
+}
+.xp-ctx-item { padding: 4px 15px; cursor: pointer; display: flex; align-items: center; }
+.xp-ctx-item:hover { background: #316ac5; color: white; }
+
+/* Desktop area */
+#xp-desktop {
+flex: 1; position: relative; overflow: hidden;
+background: url('Door_exp.jpg') center/cover no-repeat;
+}
+
+/* Desktop icons */
+.xp-icon {
+position: absolute; display: flex; flex-direction: column;
+align-items: center; width: 72px; cursor: pointer;
+padding: 4px; border-radius: 3px; color: white;
+text-shadow: 1px 1px 2px black; user-select: none;
+}
+.xp-icon:hover { background: rgba(49,106,197,0.6); outline: 1px dotted white; }
+.xp-icon img { width: 40px; height: 40px; image-rendering: pixelated; }
+.xp-icon span { text-align: center; font-size: 11px; margin-top: 3px; }
+
+/* Centered Taskbar */
+#xp-taskbar {
+height: 30px; background: linear-gradient(to bottom, #2582c8 0%, #1a5da6 3%, #0d4f9e 6%, #1461b8 10%, #1e71cc 90%, #1461b8 100%);
+display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; padding: 0;
+border-top: 1px solid #0a3d80; box-shadow: 0 -1px 0 #5ba3e0 inset;
+z-index: 10;
+}
+#xp-start-btn {
+height: 26px; background: linear-gradient(to bottom, #57a92f, #3a8a1c 50%, #317a17);
+border: 1px solid #1a5a0a; border-radius: 12px;
+color: white; font-weight: bold; font-size: 13px;
+padding: 0 14px 0 10px; cursor: pointer; display: flex; align-items: center;
+gap: 5px; text-shadow: 1px 1px 1px rgba(0,0,0,0.5);
+box-shadow: 1px 1px 3px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.3);
+}
+#xp-start-btn:hover { background: linear-gradient(to bottom, #67c93f, #4a9a2c 50%, #417a27); }
+#xp-start-btn .win-logo { font-size: 16px; margin-bottom: 2px; }
+
+.xp-taskbar-btn {
+height: 22px; background: linear-gradient(to bottom, #1050a0, #1a6bcc);
+border: 1px solid #0a3070; color: white; font-size: 11px;
+padding: 0 8px; cursor: pointer; margin: 0 2px; min-width: 120px; text-align: left;
+box-shadow: inset 0 1px 0 rgba(255,255,255,0.2); border-radius: 3px;
+white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.xp-taskbar-btn.active { background: linear-gradient(to bottom, #0a3070, #1050a0); box-shadow: inset 0 1px 3px rgba(0,0,0,0.5); }
+
+#xp-tray {
+height: 26px; background: linear-gradient(to bottom, #0d4f9e, #1668cc);
+border: 1px solid #0a3d80; display: flex; align-items: center;
+padding: 0 8px; gap: 8px; color: white; font-size: 11px;
+border-radius: 3px 0 0 0; border-right: none; border-bottom: none;
+}
+
+/* Centered Ready Menu */
+#xp-start-menu {
+position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); width: 380px;
+background: white; border: 1px solid #003180;
+box-shadow: 3px 3px 15px rgba(0,0,0,0.6); display: none; z-index: 20;
+border-radius: 5px 5px 0 0; overflow: hidden;
+}
+#xp-start-menu .sm-header {
+background: linear-gradient(to right, #1a5fa8, #3a8ad4);
+padding: 8px 12px; display: flex; align-items: center; gap: 10px;
+}
+#xp-start-menu .sm-header .avatar {
+width: 40px; height: 40px; background: #ddd; border: 2px solid white;
+border-radius: 3px; font-size: 24px; display: flex; align-items: center; justify-content: center;
+}
+#xp-start-menu .sm-header span { color: white; font-weight: bold; font-size: 14px; text-shadow: 1px 1px 2px black; }
+#xp-start-menu .sm-body { display: flex; }
+#xp-start-menu .sm-left { flex: 1; border-right: 1px solid #ccc; }
+#xp-start-menu .sm-right { flex: 1; background: #d6e4f7; color: black; }
+.sm-item {
+padding: 6px 10px; cursor: pointer; display: flex; align-items: center; gap: 8px;
+white-space: nowrap; font-size: 12px; border-bottom: 1px solid #eee; color: black;
+}
+.sm-item:hover { background: #316ac5; color: white; }
+.sm-item .ico { font-size: 20px; width: 28px; text-align: center; }
+.sm-footer {
+background: linear-gradient(to right, #1a5fa8, #3a8ad4);
+padding: 6px; display: flex; justify-content: flex-end; gap: 6px;
+}
+.sm-footer-btn {
+background: linear-gradient(to bottom, #4a9ad4, #2a6ab4);
+border: 1px solid #1a4a94; color: white; padding: 3px 12px;
+cursor: pointer; font-size: 11px; border-radius: 2px; display: flex; align-items: center; gap: 5px;
+}
+.sm-footer-btn:hover { background: linear-gradient(to bottom, #5aaae4, #3a7ac4); }
+
+/* Doors EXP */
+.xp-window {
+position: absolute; background: #ece9d8; border: 2px solid #003180;
+border-radius: 6px 6px 4px 4px; box-shadow: 3px 3px 12px rgba(0,0,0,0.5);
+min-width: 200px; display: flex; flex-direction: column; overflow: hidden;
+}
+.xp-titlebar {
+background: linear-gradient(to bottom, #2582c8, #1a5da6 50%, #0d4f9e 51%, #1564ba);
+padding: 4px 6px; display: flex; align-items: center; cursor: grab;
+border-radius: 4px 4px 0 0; user-select: none;
+}
+.xp-titlebar .title-icon { font-size: 14px; margin-right: 5px; }
+.xp-titlebar .title-text { color: white; font-weight: bold; font-size: 12px; flex: 1; text-shadow: 1px 1px 2px rgba(0,0,0,0.5); }
+.xp-winctrls { display: flex; gap: 2px; }
+.xp-btn-min, .xp-btn-max, .xp-btn-close {
+width: 21px; height: 21px; border: 1px solid rgba(0,0,0,0.4);
+border-radius: 2px; cursor: pointer; font-weight: bold; font-size: 11px;
+display: flex; align-items: center; justify-content: center; color: white;
+}
+.xp-btn-min { background: linear-gradient(to bottom, #5aaae4, #3a7ac4); }
+.xp-btn-max { background: linear-gradient(to bottom, #5aaae4, #3a7ac4); }
+.xp-btn-close { background: linear-gradient(to bottom, #e45a5a, #c43a3a); }
+.xp-btn-min:hover { background: linear-gradient(to bottom, #7abaf4, #4a8ad4); }
+.xp-btn-close:hover { background: linear-gradient(to bottom, #f47a7a, #d44a4a); }
+
+.xp-menubar {
+background: #ece9d8; border-bottom: 1px solid #aca899;
+display: flex; padding: 2px 0; font-size: 12px; color: black;
+}
+.xp-menu-item { padding: 2px 8px; cursor: pointer; border-radius: 2px; }
+.xp-menu-item:hover { background: #316ac5; color: white; }
+
+.xp-toolbar {
+background: #ece9d8; border-bottom: 1px solid #aca899;
+padding: 3px 5px; display: flex; align-items: center; gap: 4px;
+}
+.xp-tb-btn {
+background: linear-gradient(to bottom, #fff, #ddd); color: black;
+border: 1px solid #999; padding: 2px 6px; font-size: 11px;
+cursor: pointer; border-radius: 2px;
+}
+.xp-tb-btn:hover { background: linear-gradient(to bottom, #eef4ff, #c8d8f8); border-color: #316ac5; }
+
+.xp-body { flex: 1; overflow: auto; background: white; color: black; }
+
+/* File Explorer */
+.xp-explorer-body { display: flex; flex: 1; overflow: hidden; background: white; color: black; }
+.xp-sidebar {
+width: 160px; background: #d6e4f7; border-right: 1px solid #aca899;
+padding: 8px; font-size: 11px; overflow-y: auto; color: black;
+}
+.xp-sidebar-section { margin-bottom: 10px; }
+.xp-sidebar-title { background: #316ac5; color: white; padding: 3px 6px; font-weight: bold; border-radius: 2px; margin-bottom: 4px; font-size: 11px; }
+.xp-sidebar-link { padding: 2px 4px; cursor: pointer; color: #00f; text-decoration: underline; display: block; font-size: 11px; }
+.xp-sidebar-link:hover { color: #f00; }
+.xp-file-area { flex: 1; padding: 10px; display: flex; flex-wrap: wrap; gap: 5px; align-content: flex-start; overflow-y: auto; color: black; }
+.xp-file-icon { width: 64px; display: flex; flex-direction: column; align-items: center; cursor: pointer; padding: 4px; border-radius: 3px; color: black; }
+.xp-file-icon:hover { background: #316ac5; color: white; }
+.xp-file-icon span { font-size: 28px; pointer-events: none; }
+.xp-file-icon small { font-size: 11px; text-align: center; margin-top: 3px; pointer-events: none; word-wrap: break-word; width: 100%; line-height: 1.1; }
+
+/* Notepad */
+.xp-notepad-area { width: 100%; height: 100%; resize: none; border: none; outline: none; font-family: 'Courier New', monospace; font-size: 12px; padding: 4px; box-sizing: border-box; background: white; color: black; }
+
+/* Web Searcher */
+.xp-ie-toolbar { display: flex; align-items: center; gap: 4px; background: #ece9d8; padding: 3px 5px; border-bottom: 1px solid #aca899; }
+.xp-address-bar { flex: 1; border: 2px inset #999; padding: 2px 5px; font-size: 12px; color: black; }
+.xp-ie-content { flex: 1; background: white; color: black; overflow-y: auto; padding: 15px; font-size: 13px; font-family: Arial, sans-serif; }
+
+/* Paint */
+.xp-paint-toolbar { background: #ece9d8; border-bottom: 1px solid #aca899; padding: 4px; display: flex; gap: 4px; flex-wrap: wrap; color: black; }
+.xp-color-swatch { width: 18px; height: 18px; border: 1px solid #000; cursor: pointer; display: inline-block; }
+.xp-canvas-area { flex: 1; overflow: hidden; background: #808080; display: flex; align-items: flex-start; justify-content: flex-start; padding: 8px; }
+
+/* Minesweeper */
+.xp-mine-body { padding: 10px; background: #bdbdbd; display: flex; flex-direction: column; align-items: center; gap: 8px; color: black; }
+.xp-mine-header { display: flex; justify-content: space-between; align-items: center; width: 100%; background: #bdbdbd; border: 2px solid; border-color: #fff #808080 #808080 #fff; padding: 5px; box-sizing: border-box; }
+.mine-cell { width: 24px; height: 24px; background: #bdbdbd; border: 2px solid; border-color: #fff #808080 #808080 #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; font-weight: bold; font-size: 13px; user-select: none; color: black; }
+.mine-cell.revealed { border-color: #808080 #fff #fff #808080; }
+.mine-cell.flagged { color: red; }
+.xp-mine-grid { display: grid; border: 2px solid; border-color: #808080 #fff #fff #808080; }
+
+/* Error dialog */
+.xp-dialog-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.2); z-index: 50; display: flex; align-items: center; justify-content: center; }
+.xp-dialog { background: #ece9d8; border: 2px solid #003180; border-radius: 4px; box-shadow: 3px 3px 10px rgba(0,0,0,0.5); padding: 0; min-width: 300px; color: black; }
+.xp-dialog-body { padding: 15px; display: flex; gap: 12px; align-items: flex-start; font-size: 12px; color: black; }
+.xp-dialog-btns { padding: 8px; display: flex; justify-content: center; gap: 8px; border-top: 1px solid #aca899; }
+.xp-dialog-btn { background: #ece9d8; border: 1px solid #7f7f7f; padding: 4px 20px; cursor: pointer; font-size: 12px; border-radius: 2px; color: black; }
+.xp-dialog-btn:hover { background: #d4e4f7; border-color: #316ac5; color: black; }
+
+/* Scrollbars Doors exp style */
+#xp-overlay ::-webkit-scrollbar { width: 16px; }
+#xp-overlay ::-webkit-scrollbar-track { background: #ece9d8; border: 1px solid #aca899; }
+#xp-overlay ::-webkit-scrollbar-thumb { background: linear-gradient(to right, #ddd, #bbb); border: 1px solid #999; }
+</style>
+</head>
+<body oncontextmenu="return false;">
+
+<audio id="bg-music" src="miromaxmusic-music-promotion-no-copyright-513944.mp3" loop preload="auto"></audio>
+<audio id="sfx-hover" src="hover.ogg" preload="auto"></audio>
+<audio id="sfx-select" src="select.ogg" preload="auto"></audio>
+<audio id="sfx-hover-xp" src="click1.ogg" preload="auto"></audio>
+<audio id="sfx-select-xp" src="click2.ogg" preload="auto"></audio>
+<audio id="sfx-typing" src="interference.ogg" loop preload="auto"></audio>
+<audio id="sfx-error" src="error_006.ogg" preload="auto"></audio>
+<audio id="sfx-back" src="back_004.ogg" preload="auto"></audio>
+<audio id="sfx-startup" src="startup.mp3" preload="auto"></audio>
+
+<div class="scanlines"></div>
+
+<div id="boot-screen" onclick="startBootSequence(event)" style="position:fixed; top:0; left:0; width:100vw; height:100vh; background:black; z-index:3000; display:flex; justify-content:center; align-items:center; cursor:pointer; color:#ff1493;">
+  <div style="animation: blink 1.5s infinite;">CONNECT TO Gloogle MAINLINE</div>
+</div>
+
+<div id="boot-sequence" class="hidden" style="position:fixed; top:0; left:0; width:100vw; height:100vh; background:black; z-index:2500; padding:40px; color:#ff1493; white-space:pre-wrap; overflow:hidden;">
+  <span id="boot-console"></span>
+</div>
+
+<div id="taskbar" class="hidden">
+  <button class="start-btn" onclick="toggleStartMenu(event)">B.U.P.</button>
+  <div class="task-clock" id="clock">12:00 PM</div>
+</div>
+
+<div id="start-menu" class="hidden">
+  <div class="start-item" onclick="openApp('explorer'); toggleStartMenu(event);">📂 Explorer</div>
+  <div class="start-item" onclick="openApp('browser'); toggleStartMenu(event);">🔍 Google</div>
+  <div class="start-item" onclick="openApp('camera'); toggleStartMenu(event);">👁️ The Eye</div>
+  <div class="start-item" onclick="openApp('settings'); toggleStartMenu(event);">⚙️ Settings</div>
+  <div class="start-item" onclick="location.reload();">🔄 Restart</div>
+</div>
+
+<div id="desktop" class="hidden">
+  <div class="icon-container" onclick="openApp('explorer')" oncontextmenu="openCtx(event,'Explorer',true)"><div class="icon">📂</div><div class="icon-label">Explorer</div></div>
+  <div class="icon-container" onclick="openApp('browser')" oncontextmenu="openCtx(event,'Google',true)"><div class="icon">🔍</div><div class="icon-label">Google</div></div>
+  <div class="icon-container" onclick="openApp('camera')" oncontextmenu="openCtx(event,'The Eye',true)"><div class="icon">👁️</div><div class="icon-label">The Eye</div></div>
+  <div class="icon-container" onclick="openApp('settings')" oncontextmenu="openCtx(event,'Settings',true)"><div class="icon">⚙️</div><div class="icon-label">Settings</div></div>
+  <div class="icon-container" onclick="openVirus()" oncontextmenu="openCtx(event,'OUROBOROS',true)" style="color:red;"><div class="icon" style="border-color:red; box-shadow:0 0 10px red;">🕸️</div><div class="icon-label">OUROBOROS</div></div>
+</div>
+
+<div id="explorer-modal" class="os-window hidden" style="top:10%; left:10%; width:55%; height:55%;">
+  <div class="window-header" onmousedown="dragWindow(event,'explorer-modal')"><span id="explorer-title">Explorer - /</span><button class="close-btn" onclick="closeApp('explorer')">X</button></div>
+  <div id="explorer-content" style="display:flex; flex-wrap:wrap; gap:15px; padding:20px; color:black; background:white; overflow-y:auto; flex:1;"></div>
+</div>
+
+<div id="settings-modal" class="os-window hidden" style="top:5%; left:25%; width:500px; height:650px;">
+  <div class="window-header" onmousedown="dragWindow(event,'settings-modal')"><span>⚙️ System Settings</span><button class="close-btn" onclick="closeApp('settings')">X</button></div>
+  <div class="window-content" style="background:white; color:black;">
+    <div class="setting-group" style="background:#eee; border:1px solid #ccc;">
+      <label class="setting-label" style="color:black;">MASTER VOLUME</label>
+      <input type="range" class="setting-slider" min="0" max="100" value="40" oninput="updateVolume(this.value)">
+      <div id="vol-disp" style="font-size:10px; color:black;">40%</div>
+    </div>
+    <div class="setting-group" style="background:#eee; border:1px solid #ccc;">
+      <label class="setting-label" style="color:black;">TEXT TYPING SPEED</label>
+      <input type="range" class="setting-slider" min="1" max="100" value="70" oninput="typeSpeed = 101 - this.value">
+    </div>
+    <div class="setting-group" style="background:#eee; border:1px solid #ccc;">
+      <label class="setting-label" style="color:black;">MANUAL OVERRIDE CLOCK</label>
+      <input type="time" class="setting-input" onchange="overrideTime(this.value)" style="background:white; color:black; border:1px solid #999;">
+    </div>
+    <div class="setting-group" style="background:#eee; border:1px solid #ccc;">
+      <label class="setting-label" style="color:black;">AUDIO PROFILE</label>
+      <select class="setting-input" onchange="changeBGM(this.value)" style="background:white; color:black; border:1px solid #999;">
+        <option value="track_2">ABC</option>
+        <option value="track_3">Error</option>
+        <option value="track_4">Error 1</option>
+        <option value="track_5">Error 12</option>
+        <option value="track_6">Error 3</option>
+      </select>
+    </div>
+    <div class="setting-group" style="background:#eee; border:1px solid #ccc;">
+      <label class="setting-label" style="color:black;">SYSTEM FONT</label>
+      <select class="setting-input" onchange="document.body.style.fontFamily=this.value; sfx.select();" style="background:white; color:black; border:1px solid #999;">
+        <option value="'Consolas', monospace">Terminal</option>
+        <option value="'Comic Sans MS', cursive">Comic Sans</option>
+        <option value="'Courier New', monospace">Typewriter</option>
+        <option value="'Arial Black', sans-serif">Block Bold</option>
+        <option value="'Verdana', sans-serif">System Sans</option>
+        <option value="'Georgia', serif">Book Serif</option>
+        <option value="'Impact', sans-serif">Impact</option>
+        <option value="'Trebuchet MS', sans-serif">Trebuchet</option>
+        <option value="'Palatino Linotype', serif">Palatino</option>
+        <option value="'Lucida Console', monospace">Lucida Console</option>
+        <option value="'Times New Roman', serif">Times New Roman</option>
+        <option value="'Garamond', serif">Garamond</option>
+        <option value="'Franklin Gothic Medium', sans-serif">Franklin Gothic</option>
+        <option value="'Segoe UI', sans-serif">Segoe UI</option>
+        <option value="monospace">Monospace</option>
+        <option value="cursive">Cursive</option>
+      </select>
+    </div>
+    <div class="setting-group" style="background:#eee; border:1px solid #ccc;">
+      <label class="setting-label" style="color:black;">DESKTOP WALLPAPER</label>
+      <div style="display:flex; flex-direction:column; gap:8px;">
+        <label style="font-size:10px; color:black;">Upload image:</label>
+        <input type="file" accept="image/*" onchange="setBupWallpaper(this)" style="font-size:11px; color:black;">
+        <label style="font-size:10px; color:black; margin-top:4px;">— or choose solid color —</label>
+        <div style="display:flex; flex-wrap:wrap; gap:6px;">
+          <div style="width:24px;height:24px;background:#000;cursor:pointer;border:2px solid #333;" onclick="setBupSolidWallpaper('#000')" title="Black"></div>
+          <div style="width:24px;height:24px;background:#1a0020;cursor:pointer;border:2px solid #333;" onclick="setBupSolidWallpaper('#1a0020')" title="Dark Purple"></div>
+          <div style="width:24px;height:24px;background:#0a1a00;cursor:pointer;border:2px solid #333;" onclick="setBupSolidWallpaper('#0a1a00')" title="Dark Green"></div>
+          <div style="width:24px;height:24px;background:#00001a;cursor:pointer;border:2px solid #333;" onclick="setBupSolidWallpaper('#00001a')" title="Dark Blue"></div>
+          <div style="width:24px;height:24px;background:#1a0000;cursor:pointer;border:2px solid #333;" onclick="setBupSolidWallpaper('#1a0000')" title="Dark Red"></div>
+          <div style="width:24px;height:24px;background:#111;cursor:pointer;border:2px solid #333;" onclick="setBupSolidWallpaper('#111')" title="Off-Black"></div>
+          <div style="width:24px;height:24px;background:#2e0b1a;cursor:pointer;border:2px solid #333;" onclick="setBupSolidWallpaper('default')" title="Default"></div>
+        </div>
+      </div>
+    </div>
+    <div class="setting-group" style="background:#eee; border:1px solid #ccc;">
+      <label class="setting-label" style="color:black;">SYSTEM THEME COLOR</label>
+      <div style="display:flex; gap:10px; margin-bottom:10px;">
+        <div style="width:25px;height:25px;background:#ff1493;cursor:pointer;border:2px solid #333;" onclick="updateTheme('#ff1493')" title="Deep Pink"></div>
+        <div style="width:25px;height:25px;background:#00ff00;cursor:pointer;border:2px solid #333;" onclick="updateTheme('#00ff00')" title="Matrix Green"></div>
+        <div style="width:25px;height:25px;background:#00ffff;cursor:pointer;border:2px solid #333;" onclick="updateTheme('#00ffff')" title="Cyan"></div>
+        <div style="width:25px;height:25px;background:#ff8c00;cursor:pointer;border:2px solid #333;" onclick="updateTheme('#ff8c00')" title="Warning Orange"></div>
+        <div style="width:25px;height:25px;background:#ff0000;cursor:pointer;border:2px solid #333;" onclick="updateTheme('#ff0000')" title="Critical Red"></div>
+      </div>
+      <label style="font-size:10px; color:black;">CUSTOM COLOR:</label>
+      <input type="color" onchange="updateTheme(this.value)" style="width:100%; height:25px; padding:0; border:1px solid #999; cursor:pointer;">
+    </div>
+    <p style="font-size:10px; opacity:0.5; text-align:center; color:black;">ID: BUP-USER // V2.8 // STABLE</p>
+  </div>
+</div>
+
+<div id="browser-modal" class="os-window hidden" style="top:5%; left:5%; width:70%; height:80%;">
+  <div class="window-header" onmousedown="dragWindow(event,'browser-modal')"><span>🔍 Browser</span><button class="close-btn" onclick="closeApp('browser')">X</button></div>
+  <div id="browser-content" class="window-content" style="background:#ffffff; color:#000000; display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center;"></div>
+</div>
+
+<div id="camera-modal" class="os-window hidden" style="top:10%; left:50%; width:600px; height:500px;">
+  <div class="window-header" onmousedown="dragWindow(event,'camera-modal')"><span>Neural_Feed.asf</span><button class="close-btn" onclick="closeApp('camera')">X</button></div>
+  <div class="window-content"><div class="camera-feed"><div class="camera-overlay">SECTOR: ALPHA-7<br>STATUS: ACTIVE</div><div style="font-size:100px; opacity:0.2;">👁️</div></div></div>
+</div>
+
+<div id="text-modal" class="os-window hidden" style="top:20%; left:20%; width:45%; height:45%;">
+  <div class="window-header" onmousedown="dragWindow(event,'text-modal')"><span id="text-title">file.txt</span><button class="close-btn" onclick="closeApp('text')">X</button></div>
+  <div id="text-content" class="window-content" style="white-space:pre-wrap; text-align:left; background:white; color:black;"></div>
+</div>
+
+<div id="context-menu" class="hidden">
+  <div class="ctx-item" onclick="execCopy()">Copy</div>
+  <div class="ctx-item" onclick="execPaste()">Paste</div>
+  <div class="ctx-item" onclick="execDelete()">Delete</div>
+</div>
+
+<div id="xp-overlay">
+  <div id="xp-context-menu">
+    <div class="xp-ctx-item" id="xp-ctx-copy" onclick="xpExecCopy()">Copy</div>
+    <div class="xp-ctx-item" id="xp-ctx-paste" onclick="xpExecPaste()">Paste</div>
+    <div class="xp-ctx-item" id="xp-ctx-delete" onclick="xpExecDelete()">Delete</div>
+  </div>
+
+  <div id="xp-desktop" oncontextmenu="xpShowCtx(event,'desktop',null)">
+    <div class="xp-icon" style="top:20px; left:10px;" ondblclick="xpOpenFileExplorer()">
+      <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect x='4' y='8' width='40' height='28' rx='2' fill='%23c8d8e8' stroke='%23336'/%3E%3Crect x='8' y='12' width='32' height='20' fill='%234a7ab8'/%3E%3Crect x='14' y='36' width='20' height='4' fill='%23aca899'/%3E%3Crect x='10' y='40' width='28' height='3' rx='1' fill='%23aca899'/%3E%3C/svg%3E" alt="">
+      <span>File Explorer</span>
+    </div>
+    <div class="xp-icon" style="top:110px; left:10px;" ondblclick="xpOpenWebSearcher()">
+      <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Ccircle cx='24' cy='24' r='18' fill='%234a7ab8' stroke='%23003180' stroke-width='2'/%3E%3Cellipse cx='24' cy='24' rx='8' ry='18' fill='none' stroke='%23c8d8e8' stroke-width='1.5'/%3E%3Cline x1='6' y1='24' x2='42' y2='24' stroke='%23c8d8e8' stroke-width='1.5'/%3E%3Cline x1='8' y1='16' x2='40' y2='16' stroke='%23c8d8e8' stroke-width='1'/%3E%3Cline x1='8' y1='32' x2='40' y2='32' stroke='%23c8d8e8' stroke-width='1'/%3E%3Cellipse cx='38' cy='12' rx='7' ry='7' fill='%23f0c040'/%3E%3Ccircle cx='38' cy='12' r='4' fill='%23e08020'/%3E%3C/svg%3E" alt="">
+      <span>Web Searcher</span>
+    </div>
+    <div class="xp-icon" style="top:200px; left:10px;" ondblclick="xpOpenFile('notes.txt')">
+      <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect x='8' y='4' width='32' height='40' rx='2' fill='%23fffff0' stroke='%23888'/%3E%3Cline x1='12' y1='14' x2='36' y2='14' stroke='%23aaa' stroke-width='2'/%3E%3Cline x1='12' y1='20' x2='36' y2='20' stroke='%23aaa' stroke-width='2'/%3E%3Cline x1='12' y1='26' x2='36' y2='26' stroke='%23aaa' stroke-width='2'/%3E%3Cline x1='12' y1='32' x2='28' y2='32' stroke='%23aaa' stroke-width='2'/%3E%3Crect x='28' y='2' width='12' height='16' rx='1' fill='%234a7ab8'/%3E%3C/svg%3E" alt="">
+      <span>Notepad</span>
+    </div>
+    <div class="xp-icon" style="top:290px; left:10px;" ondblclick="xpOpenPaint()">
+      <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect x='4' y='4' width='40' height='36' rx='2' fill='%23fff' stroke='%23888'/%3E%3Crect x='4' y='4' width='40' height='8' fill='%23ece9d8' stroke='%23888'/%3E%3Ccircle cx='12' cy='30' r='6' fill='%23e83030'/%3E%3Ccircle cx='24' cy='30' r='6' fill='%2330a030'/%3E%3Ccircle cx='36' cy='30' r='6' fill='%233060e8'/%3E%3Cpath d='M8 18 Q20 12 32 20 Q38 24 44 18' stroke='%23e83030' stroke-width='3' fill='none'/%3E%3C/svg%3E" alt="">
+      <span>Paint</span>
+    </div>
+    <div class="xp-icon" style="top:380px; left:10px;" ondblclick="xpOpenMinesweeper()">
+      <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect x='4' y='4' width='40' height='40' rx='2' fill='%23bdbdbd'/%3E%3Ccircle cx='24' cy='24' r='10' fill='%23333'/%3E%3Cline x1='24' y1='10' x2='24' y2='38' stroke='%23333' stroke-width='3'/%3E%3Cline x1='10' y1='24' x2='38' y2='24' stroke='%23333' stroke-width='3'/%3E%3Cline x1='14' y1='14' x2='34' y2='34' stroke='%23333' stroke-width='3'/%3E%3Cline x1='34' y1='14' x2='14' y2='34' stroke='%23333' stroke-width='3'/%3E%3Ccircle cx='24' cy='24' r='5' fill='%23555'/%3E%3C/svg%3E" alt="">
+      <span>Minesweeper</span>
+    </div>
+    <div class="xp-icon" style="top:470px; left:10px;" ondblclick="xpOpenSettings()">
+      <div style="font-size:32px; text-shadow:1px 1px 2px black;">⚙️</div>
+      <span>Settings</span>
+    </div>
+    <div class="xp-icon" style="top:20px; left:100px;" ondblclick="xpOpenBin()">
+      <div style="font-size:32px; text-shadow:1px 1px 2px black;">🗑️</div>
+      <span>Recycle Bin</span>
+    </div>
+    <div class="xp-icon" style="top:110px; left:100px;" ondblclick="xpOpenCmd()">
+      <div style="font-size:32px; text-shadow:1px 1px 2px black;">⌨️</div>
+      <span>Command Prompt</span>
+    </div>
+    <div class="xp-icon" style="top:200px; left:100px;" ondblclick="xpOpenCalc()">
+      <div style="font-size:32px; text-shadow:1px 1px 2px black;">🖩</div>
+      <span>Calculator</span>
+    </div>
+    <div class="xp-icon" style="top:290px; left:100px;" ondblclick="xpOpenMediaPlayer()">
+      <div style="font-size:32px; text-shadow:1px 1px 2px black;">🎵</div>
+      <span>Media Player</span>
+    </div>
+    <div class="xp-icon" style="top:380px; left:100px;" ondblclick="xpShowDialog('Information','Doors Picture Viewer is installed.<br><br>Double-click an image file in the File Explorer to open it.')">
+      <div style="font-size:32px; text-shadow:1px 1px 2px black;">🖼️</div>
+      <span>Picture Viewer</span>
+    </div>
+    <div class="xp-icon" style="top:470px; left:100px;" ondblclick="xpOpenVault()">
+      <div style="font-size:32px; text-shadow:1px 1px 2px black;">🔐</div>
+      <span>Vault</span>
+    </div>
+
+    <div id="xp-windows-container"></div>
+  </div>
+
+  <div id="xp-taskbar">
+    <div></div>
+    <div id="xp-taskbar-center" style="display:flex; align-items:center; gap:5px; height:100%; justify-content:center;">
+      <button id="xp-start-btn" onclick="xpToggleStart(event)">
+        <span class="win-logo">🚪</span> ready
+      </button>
+      <div id="xp-taskbar-buttons" style="display:flex; gap:2px; overflow:hidden;"></div>
+    </div>
+    <div style="display:flex; justify-content:flex-end; height:100%; align-items:center;">
+      <div id="xp-tray">
+        <span>🔊</span>
+        <span id="xp-clock">12:00 PM</span>
+      </div>
+    </div>
+  </div>
+
+  <div id="xp-start-menu">
+    <div class="sm-header">
+      <div class="avatar">👤</div>
+      <span>User</span>
+    </div>
+    <div class="sm-body">
+      <div class="sm-left">
+        <div class="sm-item" onclick="xpOpenWebSearcher(); xpToggleStart(event)"><span class="ico">🌐</span> Web Searcher</div>
+        <div class="sm-item" onclick="xpOpenFile('notes.txt'); xpToggleStart(event)"><span class="ico">📝</span> Notepad</div>
+        <div class="sm-item" onclick="xpOpenPaint(); xpToggleStart(event)"><span class="ico">🎨</span> Paint</div>
+        <div class="sm-item" onclick="xpOpenMinesweeper(); xpToggleStart(event)"><span class="ico">💣</span> Minesweeper</div>
+        <hr style="border:1px solid #ccc;">
+        <div class="sm-item" onclick="xpOpenVault(); xpToggleStart(event)"><span class="ico">🔐</span> Vault</div>
+        <hr style="border:1px solid #ccc;">
+        <div class="sm-item" onclick="xpOpenFileExplorer(); xpToggleStart(event)"><span class="ico">📂</span> File Explorer</div>
+        <div class="sm-item" onclick="xpOpenSettings(); xpToggleStart(event)"><span class="ico">⚙️</span> Settings</div>
+        <div class="sm-item" onclick="xpShowControlPanel(); xpToggleStart(event)"><span class="ico">🛠️</span> Control Panel</div>
+      </div>
+      <div class="sm-right">
+        <div style="padding:6px 8px; font-weight:bold; font-size:11px; color:#316ac5; border-bottom:1px solid #ccc;">My Documents</div>
+        <div class="sm-item" onclick="xpOpenFile('passwords.txt'); xpToggleStart(event)"><span class="ico">📄</span> passwords.txt</div>
+        <div class="sm-item"><span class="ico">🖼️</span> My Pictures</div>
+        <div class="sm-item"><span class="ico">🎵</span> My Music</div>
+        <hr style="border:1px solid #ccc;">
+        <div class="sm-item" onclick="xpShowError('search')"><span class="ico">🔍</span> Search</div>
+        <div class="sm-item" onclick="xpShowError('help')"><span class="ico">❓</span> Help and Support</div>
+      </div>
+    </div>
+    <div class="sm-footer">
+      <button class="sm-footer-btn" onclick="xpShutdown()">🔴 Turn Off Computer</button>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+// ─── CONSTANTS ───────────────────────────────────────────────────────────────
+const BGM_FILES = {
+    "track_2": "ABC.mp3",
+    "track_3": "Error.mp3",
+    "track_4": "Error_1.mp3",
+    "track_5": "Error_12.mp3",
+    "track_6": "Error3.mp3"
+};
+
+const TIME_LOCKS = {
+    "mes_track_4.txt":  ["01:30","13:30"],
+    "ouroboros_888.txt":["09:42","21:42"],
+    "anomaly_314.txt":  ["03:14","15:14"]
+};
+
+// ─── BUP FILE SYSTEM (no internal folder in XP) ──────────────────────────────
+const fileSystem = {
+    "/": [
+        {name:"Documents",  isFolder:true},
+        {name:"system",     isFolder:true},
+        {name:"internal",   isFolder:true},
+        {name:"Welcome.txt",isFolder:false}
+    ],
+    "/internal/": [
+        {name:"0",isFolder:true},{name:"1",isFolder:true},{name:"2",isFolder:true},
+        {name:"3",isFolder:true},{name:"4",isFolder:true},{name:"5",isFolder:true},
+        {name:"6",isFolder:true},{name:"7",isFolder:true},{name:"8",isFolder:true},
+        {name:"9",isFolder:true}
+    ],
+    "/internal/4/0/4/": [{name:"mes_track_4.txt",   isFolder:false}],
+    "/internal/8/8/8/": [{name:"ouroboros_888.txt",  isFolder:false}],
+    "/internal/3/1/4/": [{name:"anomaly_314.txt",    isFolder:false}],
+    "/Documents/": [
+        {name:"Work_Schedule.txt",isFolder:false},
+        {name:"meeting_notes.txt",isFolder:false}
+    ],
+    "/system/": [
+        {name:"version.txt",isFolder:false},
+        {name:"error_log.txt",isFolder:false}
+    ]
+};
+
+// ─── XP FILE SYSTEM (no /internal/ maze) ─────────────────────────────────────
+const xpFileSystem = {
+    "/": [
+        {name:"Desktop Files", isFolder:true},
+        {name:"Programs",      isFolder:true},
+        {name:"Welcome.txt",   isFolder:false},
+        {name:"notes.txt",     isFolder:false},
+        {name:"todo.txt",      isFolder:false},
+        {name:"ideas.txt",     isFolder:false},
+        {name:"passwords.txt", isFolder:false},
+        {name:"Story.txt",     isFolder:false},
+        {name:"Link.txt",      isFolder:false},
+        {name:"Endless.txt",   isFolder:false}
+    ],
+    "/Desktop Files/": [
+        {name:"gold.jpg",     isFolder:false},
+        {name:"thunder.jpg",  isFolder:false},
+        {name:"sky.jpg",      isFolder:false},
+        {name:"glitch.jpg",   isFolder:false}
+    ],
+    "/Programs/": [
+        {name:"Work_Schedule.txt",  isFolder:false},
+        {name:"meeting_notes.txt",  isFolder:false},
+        {name:"version.txt",        isFolder:false},
+        {name:"error_log.txt",      isFolder:false}
+    ]
+};
+
+const DIGITS = ["0","1","2","3","4","5","6","7","8","9"];
+
+// BFS maze generator for BUP internal folder only
+function ensureFileSystemMaze() {
+    const visited = new Set(Object.keys(fileSystem));
+    const queue = Object.keys(fileSystem).filter(p => p.startsWith("/internal/"));
+    while (queue.length > 0) {
+        const currentPath = queue.shift();
+        const depth = currentPath.split("/").filter(Boolean).length;
+        if (depth >= 5) continue;
+        const items = fileSystem[currentPath] || [];
+        items.forEach(item => {
+            if (!item.isFolder) return;
+            const newPath = currentPath + item.name + "/";
+            if (!visited.has(newPath)) {
+                visited.add(newPath);
+                fileSystem[newPath] = DIGITS.map(d => ({name: d, isFolder: true}));
+                queue.push(newPath);
+            }
+        });
+    }
+}
+ensureFileSystemMaze();
+
+const FILE_CONTENTS = {
+    "Welcome.txt":      "OPERATOR.\n\nKill the process.",
+    "version.txt":      "B.U.P. OS v2.8",
+    "Work_Schedule.txt":"VIRUS ACTIVE.",
+    "meeting_notes.txt":"SUBJECT: UNKNOWN\nSTATUS: WATCHED.",
+    "error_log.txt":    "ERROR 0x445.",
+    "ouroboros_888.txt":"TIME LOCK SYNCED.\n\nRECORD 888: Ouroboros cycle reset. We are trapped in the loop. The web-node is failing.\n\nThe next temporal fracture will occur at exactly 01:30.",
+    "mes_track_4.txt":  "TIME LOCK SYNCED.\n\nRECORD 404: Node restored. Web interface rebooting...\n\nBUP-Net is now accessible. Check your email for the anomaly sector.",
+    "anomaly_314.txt":  "TIME LOCK SYNCED.\n\nRECORD 314: YOU BROKE THE LOOP.\n\nAUTHORIZATION PASSWORD: memory_leak"
+};
+
+// ─── STATE ────────────────────────────────────────────────────────────────────
+let typeSpeed       = 30;
+let typingInterval  = null;
+let clipboard       = null;
+let rightClickTarget= null;
+let currentPath     = "/";
+let manualTime      = null;
+let manualTime24    = null;
+let unlocked888     = false;
+let unlocked404     = false;
+let lastHoverTime   = 0;
+let lastSelectTime  = 0;
+
+// ─── AUDIO ───────────────────────────────────────────────────────────────────
+function playAudio(id, loop) {
+    try {
+        const a = document.getElementById(id);
+        if (!a) return;
+        a.currentTime = 0;
+        if (loop !== undefined) a.loop = loop;
+        a.play().catch(() => {});
+    } catch(e) {}
+}
+
+const sfx = {
+    hover:    () => playAudio('sfx-hover'),
+    select:   () => playAudio('sfx-select'),
+    error:    () => playAudio('sfx-error'),
+    back:     () => playAudio('sfx-back'),
+    startup:  () => playAudio('sfx-startup'),
+    type: (on) => {
+        try {
+            const a = document.getElementById('sfx-typing');
+            if (!a) return;
+            if (on) { a.play().catch(() => {}); }
+            else { a.pause(); a.currentTime = 0; }
+        } catch(e) {}
+    },
+    hoverXP: () => {
+        const now = Date.now();
+        if (now - lastHoverTime < 50) return;
+        lastHoverTime = now;
+        playAudio('sfx-hover-xp');
+    },
+    selectXP: () => {
+        const now = Date.now();
+        if (now - lastSelectTime < 50) return;
+        lastSelectTime = now;
+        playAudio('sfx-select-xp');
+    }
+};
+
+// ─── GLOBAL EVENT LISTENERS ───────────────────────────────────────────────────
+document.addEventListener('mouseover', (e) => {
+    const el = e.target.closest('.xp-icon, .sm-item, .xp-menu-item, .xp-tb-btn, .xp-file-icon, .xp-ctx-item, #xp-start-btn, .xp-sidebar-link');
+    if (el && (!e.relatedTarget || !el.contains(e.relatedTarget))) sfx.hoverXP();
+});
+
+document.addEventListener('mousedown', (e) => {
+    if (e.target.closest('.xp-icon, .sm-item, .xp-menu-item, .xp-tb-btn, .xp-file-icon, .xp-ctx-item, #xp-start-btn, .xp-sidebar-link, .xp-dialog-btn, .xp-btn-min, .xp-btn-max, .xp-btn-close')) {
+        sfx.selectXP();
+    }
+});
+
+document.addEventListener('click', (e) => {
+    // Close BUP context menu
+    const bupMenu = document.getElementById('context-menu');
+    if (bupMenu && !bupMenu.contains(e.target)) bupMenu.classList.add('hidden');
+
+    // Close XP context menu
+    const xpMenu = document.getElementById('xp-context-menu');
+    if (xpMenu && !xpMenu.contains(e.target)) xpMenu.style.display = 'none';
+
+    // Close XP start menu
+    const xpStart = document.getElementById('xp-start-menu');
+    const xpBtn   = document.getElementById('xp-start-btn');
+    if (xpStart && xpBtn && !xpStart.contains(e.target) && !xpBtn.contains(e.target)) {
+        xpStart.style.display = 'none';
+    }
+});
+
+// ─── CLOCK ────────────────────────────────────────────────────────────────────
+setInterval(() => {
+    const time = manualTime || new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+    const bupClock = document.getElementById('clock');
+    const xpClock  = document.getElementById('xp-clock');
+    if (bupClock) bupClock.innerText = time;
+    if (xpClock)  xpClock.innerText  = time;
+}, 1000);
+
+// ─── BOOT SEQUENCE ────────────────────────────────────────────────────────────
+async function startBootSequence(e) {
+    if (e) e.stopPropagation();
+    try {
+        const music = document.getElementById('bg-music');
+        if (music) { music.volume = 0; music.play().catch(() => {}); }
+        sfx.select();
+        document.getElementById('boot-screen').classList.add('hidden');
+        document.getElementById('boot-sequence').classList.remove('hidden');
+        sfx.type(true);
+        const out = document.getElementById('boot-console');
+        const lines = [
+            "Gloogle. KERNEL INIT v2.8.0...",
+            "ESTABLISHING SECURE HANDSHAKE...",
+            "VERIFYING CLEARANCE LEVEL...",
+            "WARNING: UNAUTHORIZED ACCESS DETECTED.",
+            "SCANNING DIRECTORY: /internal/8/8/8/...",
+            "ERROR: OUROBOROS LOOP INTERCEPTED AT 09:42.",
+            "EXECUTING BACKDOOR OVERRIDE [AUTH: C.\u2588\u2588\u2588\u2588\u2588\u2588]...",
+            "OVERRIDE SUCCESSFUL.",
+            "WELCOME."
+        ];
+        for (const line of lines) {
+            for (const char of line) {
+                out.textContent += char;
+                await new Promise(r => setTimeout(r, 20));
+            }
+            out.textContent += "\n";
+            await new Promise(r => setTimeout(r, line.includes("WARNING") ? 800 : 300));
+        }
+        sfx.type(false);
+        document.getElementById('boot-sequence').classList.add('hidden');
+        document.getElementById('desktop').classList.remove('hidden');
+        document.getElementById('taskbar').classList.remove('hidden');
+        if (music) music.volume = 0.4;
+    } catch (err) {
+        console.error(err);
+        document.getElementById('boot-screen').classList.add('hidden');
+        document.getElementById('boot-sequence').classList.add('hidden');
+        document.getElementById('desktop').classList.remove('hidden');
+        document.getElementById('taskbar').classList.remove('hidden');
+    }
+}
+
+// ─── TIME HELPERS ─────────────────────────────────────────────────────────────
+function getCurrentHHMM() {
+    if (manualTime24) return manualTime24;
+    return new Date().toLocaleTimeString('en-US', {hour12:false, hour:'2-digit', minute:'2-digit'});
+}
+
+function overrideTime(v) {
+    if (!v) return;
+    manualTime24 = v;
+    const [h24, m] = v.split(':');
+    const h = +h24 % 12 || 12;
+    manualTime = h + ":" + m + " " + (+h24 >= 12 ? 'PM' : 'AM');
+    sfx.select();
+}
+
+// ─── BUP WINDOWS ─────────────────────────────────────────────────────────────
+function openWindow(name, content) {
+    sfx.select();
+    let display = content;
+    if (TIME_LOCKS[name]) {
+        if (!TIME_LOCKS[name].includes(getCurrentHHMM())) {
+            display = "Sorry, please try again later.";
+        } else {
+            if (name === "ouroboros_888.txt") unlocked888 = true;
+            if (name === "mes_track_4.txt")  unlocked404 = true;
+        }
+    }
+    const modal = document.getElementById('text-modal');
+    modal.classList.remove('hidden');
+    document.getElementById('text-title').innerText = name;
+    const out = document.getElementById('text-content');
+    out.innerHTML = "";
+    const isImage = (FILE_CONTENTS[name] || "").match(/\.(jpg|png)$/i) && !display.includes("Sorry,");
+    if (isImage) {
+        const img = document.createElement('img');
+        img.src = FILE_CONTENTS[name];
+        img.style.cssText = "width:100%; animation:shake 0.2s infinite;";
+        out.appendChild(img);
+    } else {
+        sfx.type(true);
+        let i = 0;
+        clearInterval(typingInterval);
+        typingInterval = setInterval(() => {
+            if (i < display.length) {
+                out.textContent += display[i++];
+            } else {
+                clearInterval(typingInterval);
+                sfx.type(false);
+            }
+        }, typeSpeed);
+    }
+}
+
+function openCtx(e, name, isApp) {
+    e.preventDefault();
+    e.stopPropagation();
+    rightClickTarget = {name, path: currentPath, isApp};
+    const menu = document.getElementById('context-menu');
+    menu.style.left = e.pageX + "px";
+    menu.style.top  = e.pageY + "px";
+    menu.classList.remove('hidden');
+}
+
+function renderExplorer(path) {
+    currentPath = path;
+    const container = document.getElementById('explorer-content');
+    document.getElementById('explorer-title').innerText = "Explorer - " + path;
+    container.innerHTML = "";
+    if (path !== "/") {
+        const parts = path.split('/').filter(Boolean);
+        parts.pop();
+        const parentPath = parts.length ? "/" + parts.join("/") + "/" : "/";
+        container.appendChild(createBupIcon("..", true, () => renderExplorer(parentPath)));
+    }
+    (fileSystem[path] || []).forEach(item => {
+        container.appendChild(createBupIcon(item.name, item.isFolder, () => {
+            if (item.isFolder) renderExplorer(path + item.name + "/");
+            else openWindow(item.name, FILE_CONTENTS[item.name] || "");
+        }));
+    });
+}
+
+function createBupIcon(name, isFolder, clickFn) {
+    const div = document.createElement('div');
+    div.className = "icon-container";
+    const emoji = isFolder ? "📁" : ((FILE_CONTENTS[name] || "").match(/\.(jpg|png)$/i) ? "🖼️" : "📄");
+    div.innerHTML = `<div class="icon">${emoji}</div><div class="icon-label">${escapeHtml(name)}</div>`;
+    div.onclick = clickFn;
+    div.onmouseenter = sfx.hover;
+    div.oncontextmenu = (e) => openCtx(e, name, false);
+    return div;
+}
+
+function execDelete() {
+    if (rightClickTarget && rightClickTarget.isApp) return alert("CORE PROCESS PROTECTED.");
+    if (!rightClickTarget) return;
+    fileSystem[currentPath] = (fileSystem[currentPath] || []).filter(i => i.name !== rightClickTarget.name);
+    renderExplorer(currentPath);
+}
+function execCopy() {
+    if (!rightClickTarget) return;
+    clipboard = {...rightClickTarget};
+    sfx.select();
+}
+function execPaste() {
+    if (!clipboard || (rightClickTarget && rightClickTarget.isApp)) return;
+    fileSystem[currentPath] = fileSystem[currentPath] || [];
+    fileSystem[currentPath].push({name:"Copy_" + clipboard.name, isFolder:false});
+    renderExplorer(currentPath);
+    sfx.select();
+}
+
+function updateVolume(val) {
+    const music = document.getElementById('bg-music');
+    if (music) music.volume = val / 100;
+    const d1 = document.getElementById('vol-disp');
+    const d2 = document.getElementById('xp-vol-disp');
+    if (d1) d1.innerText = val + "%";
+    if (d2) d2.innerText = val + "%";
+}
+
+function changeBGM(key) {
+    const m = document.getElementById('bg-music');
+    if (m && BGM_FILES[key]) { m.src = BGM_FILES[key]; m.play().catch(() => {}); }
+    sfx.select();
+}
+
+function updateTheme(color) {
+    document.documentElement.style.setProperty('--main', color);
+    sfx.select();
+}
+
+function setBupWallpaper(input) {
+    const file = input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        document.body.style.background = "url('" + e.target.result + "') center/cover no-repeat fixed";
+        sfx.select();
+    };
+    reader.readAsDataURL(file);
+}
+
+function setBupSolidWallpaper(color) {
+    if (color === 'default') {
+        document.body.style.background = 'radial-gradient(circle at center, var(--bg) 0%, #000000 100%)';
+    } else {
+        document.body.style.background = color;
+    }
+    sfx.select();
+}
+
+function setXpWallpaper(input) {
+    const file = input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        const desk = document.getElementById('xp-desktop');
+        if (desk) desk.style.background = "url('" + e.target.result + "') center/cover no-repeat";
+        sfx.selectXP();
+    };
+    reader.readAsDataURL(file);
+}
+
+function setXpSolidWallpaper(color) {
+    const desk = document.getElementById('xp-desktop');
+    if (desk) desk.style.background = color;
+    sfx.selectXP();
+}
+
+function toggleStartMenu(e) {
+    if (e) e.stopPropagation();
+    sfx.select();
+    document.getElementById('start-menu').classList.toggle('hidden');
+}
+
+function openVirus() {
+    sfx.select();
+    const pw = prompt("ENTER AUTHORIZATION PASSWORD TO TERMINATE OUROBOROS:");
+    if (pw === "cheese_sauce") {
+        xpBoot();
+    } else {
+        sfx.error();
+        setTimeout(() => alert("ACCESS DENIED."), 10);
+    }
+}
+
+function openApp(id) {
+    sfx.select();
+    if (id === 'virus') { openVirus(); return; }
+    const modal = document.getElementById(id + '-modal');
+    if (!modal) return;
+    modal.classList.remove('hidden');
+    if (id === 'explorer') renderExplorer("/");
+    if (id === 'browser') renderBrowser();
+}
+
+function renderBrowser() {
+    const bContent = document.getElementById('browser-content');
+    if (!bContent) return;
+    if (unlocked888 && unlocked404) {
+        bContent.innerHTML = `
+            <div style="width:100%; display:flex; justify-content:flex-end; padding:10px 20px; box-sizing:border-box; font-family:arial,sans-serif; font-size:13px;">
+              <a href="#" onclick="openGmail(); return false;" style="color:#1a0dab; text-decoration:none; margin-right:15px;">Gmail</a>
+              <a href="#" style="color:#1a0dab; text-decoration:none;">Images</a>
+            </div>
+            <div style="flex-grow:1; display:flex; flex-direction:column; justify-content:center; align-items:center; width:100%;">
+              <div style="font-size:64px; font-weight:bold; font-family:Arial,sans-serif; margin-bottom:20px;">
+                <span style="color:#4285F4">G</span><span style="color:#EA4335">o</span><span style="color:#FBBC05">o</span><span style="color:#4285F4">g</span><span style="color:#34A853">l</span><span style="color:#EA4335">e</span>
+              </div>
+              <input type="text" id="google-search-input" placeholder="Search Google or type a URL" onkeydown="if(event.key==='Enter') handleGoogleSearch()" style="width:80%; max-width:400px; padding:12px 20px; border-radius:24px; border:1px solid #dfe1e5; outline:none; margin-bottom:20px; font-family:arial,sans-serif; font-size:16px; box-shadow:0 1px 6px rgba(32,33,36,.28);">
+              <div>
+                <button onclick="handleGoogleSearch()" style="padding:10px 20px; margin:5px; border:1px solid #f8f9fa; background:#f8f9fa; border-radius:4px; cursor:pointer; color:#3c4043; font-family:arial,sans-serif;">Google Search</button>
+                <button onclick="handleGoogleSearch(true)" style="padding:10px 20px; margin:5px; border:1px solid #f8f9fa; background:#f8f9fa; border-radius:4px; cursor:pointer; color:#3c4043; font-family:arial,sans-serif;">I'm Feeling Lucky</button>
+              </div>
+            </div>`;
+    } else {
+        bContent.innerHTML = `
+            <div style="font-size:64px; font-weight:bold; font-family:Arial,sans-serif; margin-bottom:20px;">
+              <span style="color:#4285F4">G</span><span style="color:#EA4335">o</span><span style="color:#FBBC05">o</span><span style="color:#4285F4">g</span><span style="color:#34A853">l</span><span style="color:#EA4335">e</span>
+            </div>
+            <h1 style="font-size:24px; color:#333;">404 Not Found.</h1>
+            <p style="color:#666; font-family:Arial,sans-serif;">google failed to load, please try again later</p>
+            <p style="font-size:10px; opacity:0.5; margin-top:40px; color:black; font-family:Consolas,monospace;">(The server at /internal/4/0/4/ is unreachable)</p>`;
+    }
+}
+
+function handleGoogleSearch(lucky = false) {
+    sfx.select();
+    const input = document.getElementById('google-search-input');
+    if (!input || !input.value.trim()) return;
+    const query = input.value.trim();
+    let url = 'https://www.google.com/search?q=' + encodeURIComponent(query);
+    if (lucky) url += '&btnI=I';
+    window.open(url, '_blank');
+}
+
+function openGmail() {
+    sfx.select();
+    const bContent = document.getElementById('browser-content');
+    if (!bContent) return;
+    bContent.innerHTML = `
+        <div style="width:100%; height:100%; display:flex; flex-direction:column; background:#f2f6fc; font-family:Arial,sans-serif; text-align:left;">
+          <div style="padding:10px 20px; background:white; border-bottom:1px solid #e0e0e0; display:flex; align-items:center;">
+            <span style="font-size:20px; color:#d93025; font-weight:bold; margin-right:10px;">M</span>
+            <span style="font-size:18px; color:#5f6368;">Gmail</span>
+          </div>
+          <div style="flex-grow:1; padding:20px; overflow-y:auto;">
+            <h2 style="font-size:16px; color:#202124; margin-top:0;">Inbox (1 Unread)</h2>
+            <div onclick="readEmail()" style="background:white; padding:12px 15px; border-bottom:1px solid #f1f3f4; cursor:pointer; display:flex; box-shadow:0 1px 2px rgba(0,0,0,.1); font-weight:bold; border-left:4px solid #d93025;">
+              <div style="width:150px; color:#202124;">SYSTEM_ADMIN</div>
+              <div style="flex-grow:1; color:#202124;">URGENT: Anomaly Detected - <span style="color:#5f6368; font-weight:normal;">Sector review required immediately...</span></div>
+            </div>
+          </div>
+        </div>`;
+}
+
+function readEmail() {
+    sfx.select();
+    const bContent = document.getElementById('browser-content');
+    if (!bContent) return;
+    bContent.innerHTML = `
+        <div style="width:100%; height:100%; display:flex; flex-direction:column; background:white; font-family:Arial,sans-serif; text-align:left;">
+          <div style="padding:10px 20px; background:white; border-bottom:1px solid #e0e0e0; display:flex; align-items:center; justify-content:space-between;">
+            <div>
+              <span style="font-size:20px; color:#d93025; font-weight:bold; margin-right:10px;">M</span>
+              <span style="font-size:18px; color:#5f6368;">Gmail</span>
+            </div>
+            <button onclick="openGmail()" style="background:none; border:none; color:#1a73e8; cursor:pointer; font-weight:bold;">← Back to Inbox</button>
+          </div>
+          <div style="flex-grow:1; padding:30px; overflow-y:auto; color:#202124;">
+            <h1 style="font-size:22px; margin-top:0;">URGENT: Anomaly Detected</h1>
+            <div style="line-height:1.6;">
+              <p>Operator,</p>
+              <p>We have a critical situation. A mathematical anomaly has been detected in <strong>Sector 3/1/4</strong>.</p>
+              <p>Do not open the camera feed. You need to access the internal logs and kill the process.</p>
+              <p>Critical mass occurs at exactly <strong style="color:red; animation:blink 2s infinite;">03:14</strong>. You must be synced before the loop restarts.</p>
+            </div>
+          </div>
+        </div>`;
+}
+
+function closeApp(id) {
+    sfx.back();
+    const modal = document.getElementById(id + '-modal');
+    if (modal) modal.classList.add('hidden');
+    if (id === 'text') { clearInterval(typingInterval); sfx.type(false); }
+}
+
+function dragWindow(e, id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    let x = e.clientX - el.offsetLeft;
+    let y = e.clientY - el.offsetTop;
+    const move = (ev) => {
+        el.style.left = (ev.clientX - x) + "px";
+        el.style.top  = Math.max(0, ev.clientY - y) + "px";
+    };
+    const up = () => {
+        document.removeEventListener('mousemove', move);
+        document.removeEventListener('mouseup', up);
+    };
+    document.addEventListener('mousemove', move);
+    document.addEventListener('mouseup', up);
+}
+
+// ─── XP BOOT ─────────────────────────────────────────────────────────────────
+function xpBoot() {
+    const overlay = document.getElementById('xp-overlay');
+    overlay.style.display = 'flex';
+    overlay.style.flexDirection = 'column';
+
+    const bgm = document.getElementById('bg-music');
+    if (bgm) { bgm.pause(); bgm.currentTime = 0; }
+
+    ['desktop','taskbar','start-menu'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.remove();
+    });
+    document.querySelectorAll('.os-window').forEach(w => w.remove());
+
+    sfx.startup();
+    xpShowDialog('🎉 Doors exp', 'Welcome to Doors exp<br><br>Your computer is now ready.<br><br><i style="font-size:11px;">This may or may not be real.</i>');
+}
+
+// ─── XP WINDOW MANAGER ───────────────────────────────────────────────────────
+let xpWindowCount = 0;
+const xpTaskbarBtns = {};
+const xpMaxStates   = {};
+
+function xpSpawnWindow(opts) {
+    xpWindowCount++;
+    const id = opts.id || ('xpw-' + xpWindowCount);
+    const existing = document.getElementById(id);
+    if (existing) { xpFocus(id); return id; }
+
+    const win = document.createElement('div');
+    win.className = 'xp-window';
+    win.id = id;
+    const x = opts.x || 100, y = opts.y || 60, w = opts.w || 500, h = opts.h || 360;
+    win.style.cssText = `left:${x}px; top:${y}px; width:${w}px; height:${h}px; z-index:${100 + xpWindowCount};`;
+    win.innerHTML = `
+        <div class="xp-titlebar" onmousedown="xpDrag(event,'${id}')">
+          <span class="title-icon">${opts.icon || '🗔'}</span>
+          <span class="title-text">${opts.title}</span>
+          <div class="xp-winctrls">
+            <div class="xp-btn-min" onclick="xpMinimize('${id}')">_</div>
+            <div class="xp-btn-max" onclick="xpMaximize('${id}')">□</div>
+            <div class="xp-btn-close" onclick="xpClose('${id}')">✕</div>
+          </div>
+        </div>
+        ${opts.content}`;
+    document.getElementById('xp-windows-container').appendChild(win);
+    xpAddTaskbarBtn(id, (opts.icon || '') + ' ' + opts.title);
+    win.addEventListener('mousedown', () => xpFocus(id));
+    return id;
+}
+
+function xpFocus(id) {
+    xpWindowCount++;
+    const win = document.getElementById(id);
+    if (win) win.style.zIndex = 100 + xpWindowCount;
+    Object.keys(xpTaskbarBtns).forEach(k => {
+        const b = xpTaskbarBtns[k];
+        if (b) b.classList.toggle('active', k === id);
+    });
+}
+
+function xpClose(id) {
+    const win = document.getElementById(id);
+    if (win) win.remove();
+    const btn = xpTaskbarBtns[id];
+    if (btn) btn.remove();
+    delete xpTaskbarBtns[id];
+    delete xpMaxStates[id];
+}
+
+function xpMinimize(id) {
+    const win = document.getElementById(id);
+    if (win) win.style.display = win.style.display === 'none' ? 'flex' : 'none';
+}
+
+function xpMaximize(id) {
+    const win = document.getElementById(id);
+    if (!win) return;
+    if (xpMaxStates[id]) {
+        Object.assign(win.style, xpMaxStates[id]);
+        delete xpMaxStates[id];
+    } else {
+        xpMaxStates[id] = {left:win.style.left, top:win.style.top, width:win.style.width, height:win.style.height};
+        win.style.left = '0px'; win.style.top = '0px';
+        win.style.width = '100%'; win.style.height = 'calc(100% - 30px)';
+    }
+}
+
+function xpAddTaskbarBtn(id, label) {
+    const container = document.getElementById('xp-taskbar-buttons');
+    const btn = document.createElement('button');
+    btn.className = 'xp-taskbar-btn active';
+    btn.innerText = label;
+    btn.onclick = () => { xpFocus(id); xpMinimize(id); };
+    container.appendChild(btn);
+    xpTaskbarBtns[id] = btn;
+}
+
+function xpDrag(e, id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    xpFocus(id);
+    const ox = e.clientX - el.offsetLeft;
+    const oy = e.clientY - el.offsetTop;
+    const move = (ev) => {
+        el.style.left = (ev.clientX - ox) + 'px';
+        el.style.top  = Math.max(0, ev.clientY - oy) + 'px';
+    };
+    const up = () => {
+        document.removeEventListener('mousemove', move);
+        document.removeEventListener('mouseup', up);
+    };
+    document.addEventListener('mousemove', move);
+    document.addEventListener('mouseup', up);
+}
+
+function xpToggleStart(e) {
+    if (e) e.stopPropagation();
+    const m = document.getElementById('xp-start-menu');
+    m.style.display = m.style.display === 'flex' ? 'none' : 'flex';
+    if (m.style.display === 'flex') m.style.flexDirection = 'column';
+}
+
+// ─── XP FILE EXPLORER (uses xpFileSystem — NO internal folder) ───────────────
+let currentXpWinId = null;
+const currentXpPaths = {};
+
+function xpOpenFileExplorer() {
+    const id = 'xp-fileexplorer';
+    if (document.getElementById(id)) { xpFocus(id); return; }
+    xpSpawnWindow({
+        id, title: 'File Explorer', icon: '📂',
+        x: 130, y: 50, w: 560, h: 380,
+        content: `
+            <div class="xp-menubar">
+              <span class="xp-menu-item">File</span><span class="xp-menu-item">Edit</span>
+              <span class="xp-menu-item">View</span><span class="xp-menu-item">Favorites</span>
+              <span class="xp-menu-item">Tools</span><span class="xp-menu-item">Help</span>
+            </div>
+            <div class="xp-toolbar">
+              <button class="xp-tb-btn" onclick="xpNavUp('${id}')">⬆ Up</button>
+              <span style="margin-left:8px; font-size:11px; color:black;">Address:</span>
+              <input id="addr-${id}" readonly style="flex:1; border:2px inset #999; padding:2px 5px; font-size:11px; color:black; background:#eee;">
+            </div>
+            <div class="xp-explorer-body">
+              <div class="xp-sidebar">
+                <div class="xp-sidebar-section">
+                  <div class="xp-sidebar-title">System Tasks</div>
+                  <a class="xp-sidebar-link" onclick="xpShowError('sysinfo')">View system information</a>
+                  <a class="xp-sidebar-link" onclick="xpShowError('uninstall')">Add or remove programs</a>
+                </div>
+                <div class="xp-sidebar-section">
+                  <div class="xp-sidebar-title">Other Places</div>
+                  <a class="xp-sidebar-link" onclick="xpShowControlPanel()">Control Panel</a>
+                </div>
+              </div>
+              <div class="xp-file-area" id="fa-${id}"></div>
+            </div>`
+    });
+    xpNavigate('/', id);
+}
+
+function xpNavigate(path, winId) {
+    currentXpPaths[winId] = path;
+    currentXpWinId = winId;
+    const area = document.getElementById('fa-' + winId);
+    const addr = document.getElementById('addr-' + winId);
+    if (!area) return;
+    if (addr) addr.value = path;
+    area.innerHTML = '';
+    area.oncontextmenu = (e) => { if (e.target === area) xpShowCtx(e, 'folder', {path}); };
+
+    if (path !== '/') {
+        const backBtn = document.createElement('div');
+        backBtn.className = 'xp-file-icon';
+        backBtn.ondblclick = () => xpNavUp(winId);
+        backBtn.innerHTML = '<span>📁</span><small>..</small>';
+        area.appendChild(backBtn);
+    }
+
+    (xpFileSystem[path] || []).forEach(item => {
+        const icon = item.isFolder ? '📁' : (item.name.match(/\.(png|jpg)$/i) ? '🖼️' : '📄');
+        const div = document.createElement('div');
+        div.className = 'xp-file-icon';
+        div.ondblclick = () => {
+            if (item.isFolder) xpNavigate(path + item.name + "/", winId);
+            else xpOpenFile(item.name);
+        };
+        div.oncontextmenu = (e) => xpShowCtx(e, 'file', {path, name: item.name});
+        div.innerHTML = `<span>${icon}</span><small>${escapeHtml(item.name)}</small>`;
+        area.appendChild(div);
+    });
+}
+
+function xpNavUp(winId) {
+    const path = currentXpPaths[winId] || '/';
+    if (path === '/') return;
+    const parts = path.split('/').filter(Boolean);
+    parts.pop();
+    const parent = parts.length ? '/' + parts.join('/') + '/' : '/';
+    xpNavigate(parent, winId);
+}
+
+// XP file contents are separate from BUP — no time locks in Doors exp
+const XP_FILE_CONTENTS = {
+    "Welcome.txt":      "Welcome to Doors exp.\n\nEnjoy your stay.",
+    "version.txt":      "Doors exp Version 6.8",
+    "Work_Schedule.txt":"9:00 AM - Work\n5:00 PM - Done",
+    "meeting_notes.txt":"Meeting cancelled.\nReschedule for never.",
+    "error_log.txt":    "No errors found.\n\n...suspicious.",
+    "gold.jpg":         "gold.jpg",
+    "thunder.jpg":      "thunder.jpg",
+    "sky.jpg":          "sky.jpg",
+    "notes.txt":        "Note to self: figure out what's going on.",
+    "todo.txt":         "- Don't panic\n- Find the door",
+    "ideas.txt":        "What if everything here is fake?",
+    "passwords.txt":    "hunter2\n\n(just kidding)",
+    "Story.txt":        "fehlolzvbxrl",
+    "Link.txt":         "68 74 74 70 73 3a 2f 2f 64 6f 63 73 2e 67 6f 6f 67 6c 65 2e 63 6f 6d 2f 73 70 72 65 61 64 73 68 65 65 74 73 2f 64 2f 31 43 70 5a 49 56 77 5a 45 67 64 61 35 66 35 7a 69 6c 70 50 78 61 38 65 52 76 4a 59 72 68 4e 4f 59 68 36 64 50 57 4c 69 2d 43 64 59 2f 65 64 69 74 3f 67 69 64 3d 30 23 67 69 64 3d 30",
+    "Endless.txt":      "████████████████████████\n█                      █\n█   E N D L E S S      █\n█                      █\n████████████████████████\n\nYou found it.\n\nThe word you were looking for.\n\nENDLESS."
+};
+
+function xpOpenFile(name) {
+    const content = XP_FILE_CONTENTS[name] || '';
+    if (name.match(/\.(png|jpg)$/i)) {
+        xpOpenImageViewer(XP_FILE_CONTENTS[name], name);
+    } else {
+        xpOpenNotepad(content);
+    }
+}
+
+// ─── XP APPS ─────────────────────────────────────────────────────────────────
+function xpOpenSettings() {
+    xpSpawnWindow({
+        id:'xp-settings', title:'Settings v5.0', icon:'⚙️',
+        x:200, y:120, w:400, h:480,
+        content:`
+            <div class="xp-menubar"><span class="xp-menu-item">File</span><span class="xp-menu-item">Help</span></div>
+            <div class="xp-body" style="padding:15px; display:flex; flex-direction:column; gap:12px; background:#ece9d8; font-family:Tahoma,Arial,sans-serif; color:black; overflow-y:auto;">
+              <div style="font-weight:bold; font-size:14px; border-bottom:1px solid #aca899; padding-bottom:5px;">System Settings</div>
+              <div>
+                <label style="display:block; margin-bottom:5px;">Master Volume:</label>
+                <div style="display:flex; align-items:center; gap:10px;">
+                  <input type="range" min="0" max="100" value="40" oninput="updateVolume(this.value)" style="flex:1;">
+                  <span id="xp-vol-disp">40%</span>
+                </div>
+              </div>
+              <div>
+                <label style="display:block; margin-bottom:5px;">System Font:</label>
+                <select onchange="document.getElementById('xp-overlay').style.fontFamily=this.value" style="width:100%; padding:3px; border:1px solid #999; font-size:11px; color:black; background:white;">
+                  <option value="Tahoma,Arial,sans-serif">Tahoma (Default)</option>
+                  <option value="'Courier New',monospace">Courier New</option>
+                  <option value="Arial,sans-serif">Arial</option>
+                  <option value="'Times New Roman',serif">Times New Roman</option>
+                  <option value="Verdana,sans-serif">Verdana</option>
+                  <option value="Georgia,serif">Georgia</option>
+                  <option value="Impact,sans-serif">Impact</option>
+                  <option value="'Trebuchet MS',sans-serif">Trebuchet MS</option>
+                  <option value="'Palatino Linotype',serif">Palatino</option>
+                  <option value="'Lucida Console',monospace">Lucida Console</option>
+                  <option value="'Comic Sans MS',cursive">Comic Sans</option>
+                  <option value="'Franklin Gothic Medium',sans-serif">Franklin Gothic</option>
+                  <option value="'Segoe UI',sans-serif">Segoe UI</option>
+                  <option value="Garamond,serif">Garamond</option>
+                  <option value="'Arial Black',sans-serif">Arial Black</option>
+                  <option value="monospace">Monospace</option>
+                </select>
+              </div>
+              <div>
+                <label style="display:block; margin-bottom:5px;">Desktop Wallpaper:</label>
+                <div style="display:flex; flex-direction:column; gap:5px;">
+                  <input type="file" accept="image/*" onchange="setXpWallpaper(this)" style="font-size:11px; color:black; width:100%;">
+                  <label style="font-size:10px; color:#555;">— or pick a solid color —</label>
+                  <div style="display:flex; flex-wrap:wrap; gap:5px;">
+                    <div style="width:22px;height:22px;background:#3a6ea5;cursor:pointer;border:2px solid #999;" onclick="setXpSolidWallpaper('#3a6ea5')" title="XP Blue (Default)"></div>
+                    <div style="width:22px;height:22px;background:#008000;cursor:pointer;border:2px solid #999;" onclick="setXpSolidWallpaper('#008000')" title="Green"></div>
+                    <div style="width:22px;height:22px;background:#000080;cursor:pointer;border:2px solid #999;" onclick="setXpSolidWallpaper('#000080')" title="Navy"></div>
+                    <div style="width:22px;height:22px;background:#800000;cursor:pointer;border:2px solid #999;" onclick="setXpSolidWallpaper('#800000')" title="Maroon"></div>
+                    <div style="width:22px;height:22px;background:#000;cursor:pointer;border:2px solid #999;" onclick="setXpSolidWallpaper('#000')" title="Black"></div>
+                    <div style="width:22px;height:22px;background:#808080;cursor:pointer;border:2px solid #999;" onclick="setXpSolidWallpaper('#808080')" title="Gray"></div>
+                    <div style="width:22px;height:22px;background:#4b0082;cursor:pointer;border:2px solid #999;" onclick="setXpSolidWallpaper('#4b0082')" title="Indigo"></div>
+                    <div style="width:22px;height:22px;background:#c0392b;cursor:pointer;border:2px solid #999;" onclick="setXpSolidWallpaper('#c0392b')" title="Red"></div>
+                  </div>
+                </div>
+              </div>
+              <div style="margin-top:auto; text-align:right;">
+                <button onclick="xpShowError('sysinfo')" style="padding:4px 15px; cursor:pointer; font-size:11px; border:1px solid #7f7f7f; border-radius:2px; background:#ece9d8; color:black;">View System Info</button>
+              </div>
+            </div>`
+    });
+}
+
+function xpOpenNotepad(content) {
+    const id = 'xp-notepad-' + xpWindowCount;
+    const escaped = escapeHtml(content || '');
+    let sizeOptions = '';
+    for (let i = 8; i <= 100; i++) sizeOptions += `<option value="${i}">${i}px</option>`;
+
+    xpSpawnWindow({
+        id, title:'Notepad Pro v4.9', icon:'📝',
+        x:150 + (xpWindowCount * 20) % 150, y:80,
+        w:520, h:360,
+        content:`
+            <div class="xp-menubar">
+              <span class="xp-menu-item">File</span><span class="xp-menu-item">Edit</span>
+              <span class="xp-menu-item">Format</span><span class="xp-menu-item">View</span><span class="xp-menu-item">Help</span>
+            </div>
+            <div class="xp-toolbar" style="flex-wrap:wrap; gap:4px;">
+              <select onchange="document.execCommand('fontName',false,this.value)" style="font-size:11px; border:1px solid #999; padding:2px;">
+                <option value="Arial">Arial</option>
+                <option value="Courier New">Courier New</option>
+                <option value="Tahoma">Tahoma</option>
+              </select>
+              <select onchange="xpSetFontSize(this.value)" style="font-size:11px; border:1px solid #999; padding:2px;">
+                <option value="">Size</option>${sizeOptions}
+              </select>
+              <button class="xp-tb-btn" style="font-weight:bold;" onclick="document.execCommand('bold',false,null)">B</button>
+              <button class="xp-tb-btn" style="font-style:italic;" onclick="document.execCommand('italic',false,null)">I</button>
+              <button class="xp-tb-btn" style="text-decoration:underline;" onclick="document.execCommand('underline',false,null)">U</button>
+              <input type="color" onchange="document.execCommand('foreColor',false,this.value)" style="height:21px; width:24px; padding:0; border:1px solid #999; cursor:pointer;" title="Text Color">
+              <button class="xp-tb-btn" onclick="xpSaveNotepad('${id}')" style="margin-left:auto;">💾 Download</button>
+            </div>
+            <div style="flex:1; display:flex; flex-direction:column; background:white;">
+              <div id="editor-${id}" class="xp-notepad-area" contenteditable="true" style="overflow-y:auto; cursor:text;">${escaped}</div>
+            </div>`
+    });
+}
+
+function xpSetFontSize(px) {
+    if (!px) return;
+    document.execCommand("fontSize", false, "7");
+    document.querySelectorAll("font[size='7']").forEach(f => {
+        f.removeAttribute("size");
+        f.style.fontSize = px + "px";
+    });
+}
+
+function xpSaveNotepad(id) {
+    const editor = document.getElementById('editor-' + id);
+    if (!editor) return;
+    const blob = new Blob([editor.innerHTML], {type:"text/html"});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "BUP_Note.html";
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+function xpOpenWebSearcher() {
+    xpSpawnWindow({
+        id:'xp-websearcher', title:'Web Searcher', icon:'🌐',
+        x:80, y:40, w:680, h:460,
+        content:`
+            <div class="xp-menubar">
+              <span class="xp-menu-item">File</span><span class="xp-menu-item">Edit</span>
+              <span class="xp-menu-item">View</span><span class="xp-menu-item">Favorites</span>
+              <span class="xp-menu-item">Tools</span><span class="xp-menu-item">Help</span>
+            </div>
+            <div class="xp-ie-toolbar">
+              <button class="xp-tb-btn" onclick="xpIENav()">⬅</button>
+              <button class="xp-tb-btn">➡</button>
+              <button class="xp-tb-btn">🔄</button>
+              <button class="xp-tb-btn">🏠</button>
+              <span style="font-size:11px; margin-left:5px; color:black;">Address:</span>
+              <input id="xp-ie-addr" class="xp-address-bar" value="http://www.search.net/" onkeydown="if(event.key==='Enter') xpIENav()">
+              <button class="xp-tb-btn" onclick="xpIENav()">Go</button>
+              <span style="font-size:18px; margin-left:5px;">🌐</span>
+            </div>
+            <div class="xp-ie-content" id="xp-ie-content">
+              <div style="background:linear-gradient(to right,#003180,#3a6ea5); color:white; padding:12px; margin:-15px -15px 15px; font-size:18px; font-weight:bold;">🌐 Web Searcher — Welcome to the Internet</div>
+              <p style="color:#333; font-size:13px;">Top Stories:</p>
+              <ul style="font-size:12px; color:#00f; line-height:2;">
+                <li><a href="#" onclick="xpIELoad('news1'); return false;">Local teen defeats ancient OS loop</a></li>
+              </ul>
+              <hr>
+              <p style="font-size:11px; color:#666;">Web Searcher 6.0 | Protected Mode: Off | Internet Zone</p>
+            </div>`
+    });
+}
+
+function xpIENav() {
+    const addr = document.getElementById('xp-ie-addr');
+    if (!addr) return;
+    const url = addr.value.toLowerCase();
+    const content = document.getElementById('xp-ie-content');
+    if (!content) return;
+    if (url.includes('google') || url.includes('search')) {
+        content.innerHTML = `<div style="text-align:center; padding:40px;"><div style="font-size:50px; font-weight:bold;"><span style="color:#4285F4">G</span><span style="color:#EA4335">o</span><span style="color:#FBBC05">o</span><span style="color:#4285F4">g</span><span style="color:#34A853">l</span><span style="color:#EA4335">e</span></div><br><input placeholder="Search..." style="padding:8px; width:300px; border:1px solid #ccc; border-radius:20px;"></div>`;
+    } else {
+        content.innerHTML = `<div style="text-align:center; padding:40px; color:#c00;"><h2>Cannot find server</h2></div>`;
+    }
+}
+
+function xpIELoad(story) {
+    const content = document.getElementById('xp-ie-content');
+    if (content) content.innerHTML = '<h2>Local Teen Defeats Ancient OS Loop</h2><p>In a shocking development, an operator has defeated the OUROBOROS loop...</p>';
+}
+
+function xpOpenPaint() {
+    const id = 'xp-paint-' + xpWindowCount;
+    xpSpawnWindow({
+        id, title:'untitled - Paint', icon:'🎨',
+        x:120, y:60, w:620, h:440,
+        content:`
+            <div class="xp-menubar">
+              <span class="xp-menu-item">File</span><span class="xp-menu-item">Edit</span>
+              <span class="xp-menu-item">View</span><span class="xp-menu-item">Colors</span><span class="xp-menu-item">Help</span>
+            </div>
+            <div class="xp-paint-toolbar" id="pt-${id}">
+              <span style="font-size:11px;">Color:</span>
+              ${['#000','#fff','#c00','#0c0','#00c','#fc0','#f0f','#0ff','#f80','#80f','#840','#048'].map(c => `<span class="xp-color-swatch" style="background:${c}" onclick="xpSetColor('${id}','${c}')"></span>`).join('')}
+              <button class="xp-tb-btn" onclick="xpClearCanvas('${id}')" style="margin-left:10px;">Clear</button>
+            </div>
+            <div class="xp-canvas-area">
+              <canvas id="pc-${id}" width="550" height="320" style="background:white; cursor:crosshair;"
+                onmousedown="xpPaintStart(event,'${id}')" onmousemove="xpPaintDraw(event,'${id}')"
+                onmouseup="xpPaintStop('${id}')" onmouseleave="xpPaintStop('${id}')">
+              </canvas>
+            </div>`
+    });
+}
+
+const xpPaintState = {};
+function xpSetColor(id, col)     { (xpPaintState[id] = xpPaintState[id] || {}).color = col; }
+function xpClearCanvas(id) {
+    const c = document.getElementById('pc-' + id);
+    if (!c) return;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = 'white';
+    ctx.fillRect(0, 0, c.width, c.height);
+}
+function xpPaintStart(e, id) {
+    xpPaintState[id] = xpPaintState[id] || {};
+    xpPaintState[id].drawing = true;
+    const c = document.getElementById('pc-' + id);
+    if (!c) return;
+    const r = c.getBoundingClientRect();
+    xpPaintState[id].lx = e.clientX - r.left;
+    xpPaintState[id].ly = e.clientY - r.top;
+}
+function xpPaintDraw(e, id) {
+    const s = xpPaintState[id];
+    if (!s || !s.drawing) return;
+    const c = document.getElementById('pc-' + id);
+    if (!c) return;
+    const r = c.getBoundingClientRect();
+    const x = e.clientX - r.left, y = e.clientY - r.top;
+    const ctx = c.getContext('2d');
+    ctx.strokeStyle = s.color || '#000';
+    ctx.lineWidth = 5;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(s.lx, s.ly);
+    ctx.lineTo(x, y);
+    ctx.stroke();
+    s.lx = x; s.ly = y;
+}
+function xpPaintStop(id) { if (xpPaintState[id]) xpPaintState[id].drawing = false; }
+
+function xpOpenMinesweeper() {
+    const id = 'xp-mine-' + xpWindowCount;
+    const rows = 9, cols = 9, mines = 10;
+    const grid = Array.from({length:rows}, () => Array(cols).fill(0));
+    let placed = 0;
+    while (placed < mines) {
+        const r = Math.floor(Math.random() * rows);
+        const c = Math.floor(Math.random() * cols);
+        if (grid[r][c] !== 'M') { grid[r][c] = 'M'; placed++; }
+    }
+    for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+            if (grid[r][c] === 'M') continue;
+            let cnt = 0;
+            for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+                const nr = r+dr, nc = c+dc;
+                if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && grid[nr][nc] === 'M') cnt++;
+            }
+            grid[r][c] = cnt;
+        }
+    }
+    window['xpMineGrid_'+id]     = grid;
+    window['xpMineRevealed_'+id] = Array.from({length:rows}, () => Array(cols).fill(false));
+    window['xpMineFlagged_'+id]  = Array.from({length:rows}, () => Array(cols).fill(false));
+    window['xpMineCount_'+id]    = mines;
+    window['xpMineOver_'+id]     = false;
+
+    const cellsHtml = grid.map((row, r) =>
+        row.map((v, c) => `<div class="mine-cell" id="${id}-cell-${r}-${c}" onclick="xpMineReveal('${id}',${r},${c})" oncontextmenu="xpMineFlag(event,'${id}',${r},${c})"></div>`).join('')
+    ).join('');
+
+    xpSpawnWindow({
+        id, title:'Minesweeper', icon:'💣',
+        x:200, y:100, w:260, h:340,
+        content:`
+            <div class="xp-mine-body">
+              <div class="xp-mine-header">
+                <div id="${id}-count" style="background:#000;color:red;font-family:monospace;font-weight:bold;padding:2px 6px;font-size:20px;border:2px inset #808080;">${String(mines).padStart(3,'0')}</div>
+                <button onclick="xpOpenMinesweeper()" style="width:32px;height:32px;font-size:18px;background:#bdbdbd;border:2px solid;border-color:#fff #808080 #808080 #fff;cursor:pointer;">🙂</button>
+                <div id="${id}-time" style="background:#000;color:red;font-family:monospace;font-weight:bold;padding:2px 6px;font-size:20px;border:2px inset #808080;">000</div>
+              </div>
+              <div class="xp-mine-grid" style="grid-template-columns:repeat(${cols},24px); border:2px solid; border-color:#808080 #fff #fff #808080;">
+                ${cellsHtml}
+              </div>
+            </div>`
+    });
+    let t = 0;
+    const timer = setInterval(() => {
+        if (window['xpMineOver_'+id] || !document.getElementById(id)) { clearInterval(timer); return; }
+        t++;
+        const el = document.getElementById(id + '-time');
+        if (el) el.textContent = String(Math.min(t, 999)).padStart(3, '0');
+    }, 1000);
+}
+
+function xpMineReveal(id, r, c) {
+    if (window['xpMineOver_'+id]) return;
+    const grid    = window['xpMineGrid_'+id];
+    const rev     = window['xpMineRevealed_'+id];
+    const flagged = window['xpMineFlagged_'+id];
+    if (rev[r][c] || flagged[r][c]) return;
+    rev[r][c] = true;
+    const cell = document.getElementById(`${id}-cell-${r}-${c}`);
+    if (!cell) return;
+    cell.classList.add('revealed');
+    if (grid[r][c] === 'M') {
+        cell.textContent = '💥'; cell.style.background = 'red';
+        window['xpMineOver_'+id] = true;
+        for (let rr = 0; rr < 9; rr++) for (let cc = 0; cc < 9; cc++) {
+            if (grid[rr][cc] === 'M' && !(rr === r && cc === c)) {
+                const mc = document.getElementById(`${id}-cell-${rr}-${cc}`);
+                if (mc) { mc.textContent = '💣'; mc.classList.add('revealed'); }
+            }
+        }
+        setTimeout(() => xpShowDialog('💥 Game Over', 'You hit a mine!<br><br><button onclick="xpOpenMinesweeper()" style="font-size:12px;padding:4px 12px; color:black;">New Game</button>'), 200);
+    } else {
+        const colors = ['','#0000ff','#007b00','#ff0000','#00007b','#7b0000','#007b7b','#000','#808080'];
+        if (grid[r][c] > 0) { cell.textContent = grid[r][c]; cell.style.color = colors[grid[r][c]] || '#000'; }
+        else {
+            cell.textContent = '';
+            for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+                const nr = r+dr, nc = c+dc;
+                if (nr >= 0 && nr < 9 && nc >= 0 && nc < 9 && !rev[nr][nc]) xpMineReveal(id, nr, nc);
+            }
+        }
+    }
+}
+
+function xpMineFlag(e, id, r, c) {
+    e.preventDefault();
+    if (window['xpMineOver_'+id]) return;
+    const rev     = window['xpMineRevealed_'+id];
+    const flagged = window['xpMineFlagged_'+id];
+    if (rev[r][c]) return;
+    flagged[r][c] = !flagged[r][c];
+    const cell = document.getElementById(`${id}-cell-${r}-${c}`);
+    if (cell) { cell.textContent = flagged[r][c] ? '🚩' : ''; cell.classList.toggle('flagged', flagged[r][c]); }
+    const cnt = document.getElementById(id + '-count');
+    if (cnt) {
+        const flags = flagged.flat().filter(Boolean).length;
+        cnt.textContent = String(window['xpMineCount_'+id] - flags).padStart(3, '0');
+    }
+}
+
+function xpShowControlPanel() {
+    xpSpawnWindow({
+        id:'xp-cp', title:'Control Panel', icon:'🛠️',
+        x:160, y:70, w:540, h:360,
+        content:`
+            <div class="xp-menubar">
+              <span class="xp-menu-item">File</span><span class="xp-menu-item">Edit</span>
+              <span class="xp-menu-item">View</span><span class="xp-menu-item">Favorites</span><span class="xp-menu-item">Help</span>
+            </div>
+            <div class="xp-explorer-body" style="flex:1; display:flex; overflow:hidden;">
+              <div class="xp-sidebar">
+                <div class="xp-sidebar-section">
+                  <div class="xp-sidebar-title">Control Panel</div>
+                  <a class="xp-sidebar-link">Switch to Classic View</a>
+                </div>
+              </div>
+              <div class="xp-file-area">
+                ${[['🖥️','Display'],['🔊','Sounds'],['🖱️','Mouse'],['⌨️','Keyboard'],['🌐','Internet Options'],['🔒','Security Center'],['⚡','Power Options'],['🖨️','Printers'],['🖩','Calculator Settings'],['📅','Date and Time'],['🔧','System'],['➕','Add Hardware']]
+                  .map(([ico,n]) => `<div class="xp-file-icon" ondblclick="xpShowError('cp-${n}')"><span>${ico}</span><small>${n}</small></div>`).join('')}
+              </div>
+            </div>`
+    });
+}
+
+function xpShowDialog(title, msg) {
+    const id = 'xp-dialog-' + xpWindowCount;
+    xpSpawnWindow({
+        id, title, icon:'ℹ️',
+        x: Math.max(0, Math.floor(window.innerWidth / 2) - 200),
+        y: Math.max(0, Math.floor(window.innerHeight / 2) - 100),
+        w:380, h:160,
+        content:`
+            <div class="xp-dialog-body">
+              <span style="font-size:36px;">ℹ️</span>
+              <div style="font-size:12px; line-height:1.6;">${msg}</div>
+            </div>
+            <div class="xp-dialog-btns">
+              <button class="xp-dialog-btn" onclick="xpClose('${id}')">OK</button>
+            </div>`
+    });
+}
+
+function xpShowError(type) {
+    const msgs = {
+        dvd:     "Please insert a disc into Drive D:",
+        floppy:  "The device is not ready.<br>Please insert a floppy disk.",
+        sysinfo: "Doors exp Professional<br>Version 2002 Service Pack 2<br><br>Registered to: User<br>BUP-USER",
+        uninstall:"Doors exp cannot complete the installation.<br>Error 0x445: OUROBOROS",
+        restore: "System Restore is not available in this mode.",
+        search:  "Search Companion is currently unavailable.",
+        help:    "Help is not available.<br><br>You don't need it anyway.",
+        'cp-Calculator Settings': "FATAL EXCEPTION.<br>Error [314]: USER_UNMAPPED<br>Sector sync required.",
+        default: "Doors exp has encountered a problem and needs to close.<br>Error 0x80070057"
+    };
+    xpShowDialog('⚠️ Doors exp', msgs[type] || msgs.default);
+}
+
+function xpShutdown() {
+    sfx.error();
+    xpShowDialog('🚪 Trapped', 'You cannot leave.<br><br>The door is locked from the outside.');
+}
+
+// ─── XP RECYCLE BIN ──────────────────────────────────────────────────────────
+let xpRecycleBinItems = [
+    { id:'arg2', icon:'📄', name:'groceries.txt', action:"xpOpenNotepad('Grocery list:\\n- Milk\\n- Eggs\\n- 2011 to be found on google')" }
+];
+
+function xpOpenBin() {
+    const id = 'xp-bin-' + xpWindowCount;
+    const binHtml = xpRecycleBinItems.map(item =>
+        `<div class="xp-file-icon" ondblclick="${item.action}"><span>${item.icon}</span><small>${escapeHtml(item.name)}</small></div>`
+    ).join('');
+    xpSpawnWindow({
+        id, title:'Recycle Bin', icon:'🗑️',
+        x:180, y:120, w:500, h:350,
+        content:`
+            <div class="xp-menubar">
+              <span class="xp-menu-item">File</span><span class="xp-menu-item">Edit</span>
+              <span class="xp-menu-item">View</span><span class="xp-menu-item">Help</span>
+            </div>
+            <div class="xp-explorer-body">
+              <div class="xp-sidebar">
+                <div class="xp-sidebar-section">
+                  <div class="xp-sidebar-title">Recycle Bin Tasks</div>
+                  <a class="xp-sidebar-link" onclick="xpShowDialog('Error','Cannot empty recycle bin. Core system files present.')">Empty the Recycle Bin</a>
+                  <a class="xp-sidebar-link">Restore all items</a>
+                </div>
+              </div>
+              <div class="xp-file-area" id="bin-area-global">${binHtml}</div>
+            </div>`
+    });
+}
+
+// ─── XP VAULT APP ────────────────────────────────────────────────────────────
+function xpOpenVault() {
+    const id = 'xp-vault-' + xpWindowCount;
+    xpSpawnWindow({
+        id, title:'Vault v1.0 - Classified', icon:'🔐',
+        x:220, y:80, w:420, h:440,
+        content:`
+            <div style="background:#1a1a1a; color:#ccc; font-family:Consolas,monospace; font-size:12px; padding:15px; height:100%; box-sizing:border-box; display:flex; flex-direction:column; gap:12px; overflow-y:auto;">
+              <div style="text-align:center; color:#ff1493; font-size:14px; font-weight:bold; border-bottom:1px solid #333; padding-bottom:8px;">
+                ██ CLASSIFIED VAULT ██<br>
+                <span style="font-size:10px; color:#666;">3-Stage Authorization Required</span>
+              </div>
+
+              <div id="vault-stage1-${id}" style="border:1px solid #333; padding:10px; background:#111;">
+                <div style="color:#ff1493; margin-bottom:6px; font-size:11px;">STAGE 1 — ANOMALY CODE</div>
+                <div style="color:#888; font-size:10px; margin-bottom:6px;">Hint: check the calculator...</div>
+                <div style="display:flex; gap:6px;">
+                  <input id="vault-in1-${id}" type="password" placeholder="Enter code..." style="flex:1; background:#000; color:#0f0; border:1px solid #444; padding:5px; font-family:Consolas,monospace; font-size:12px;" onkeydown="if(event.key==='Enter') xpVaultCheck('${id}',1)">
+                  <button onclick="xpVaultCheck('${id}',1)" style="background:#333; color:#fff; border:1px solid #555; padding:5px 12px; cursor:pointer;">ENTER</button>
+                </div>
+                <div id="vault-msg1-${id}" style="font-size:10px; margin-top:5px; color:#f00;"></div>
+              </div>
+
+              <div id="vault-stage2-${id}" style="border:1px solid #222; padding:10px; background:#0a0a0a; opacity:0.4; pointer-events:none;">
+                <div style="color:#888; margin-bottom:6px; font-size:11px;">STAGE 2 — SYSTEM PASSWORD</div>
+                <div style="color:#555; font-size:10px; margin-bottom:6px;">Hint: it leaked from the command prompt...</div>
+                <div style="display:flex; gap:6px;">
+                  <input id="vault-in2-${id}" type="password" placeholder="Locked..." style="flex:1; background:#000; color:#0f0; border:1px solid #222; padding:5px; font-family:Consolas,monospace; font-size:12px;" onkeydown="if(event.key==='Enter') xpVaultCheck('${id}',2)">
+                  <button onclick="xpVaultCheck('${id}',2)" style="background:#222; color:#555; border:1px solid #333; padding:5px 12px; cursor:pointer;">ENTER</button>
+                </div>
+                <div id="vault-msg2-${id}" style="font-size:10px; margin-top:5px; color:#f00;"></div>
+              </div>
+
+              <div id="vault-stage3-${id}" style="border:1px solid #222; padding:10px; background:#0a0a0a; opacity:0.4; pointer-events:none;">
+                <div style="color:#888; margin-bottom:6px; font-size:11px;">STAGE 3 — FINAL KEY</div>
+                <div style="color:#555; font-size:10px; margin-bottom:6px;">Hint: think about what comes after...</div>
+                <div style="display:flex; gap:6px;">
+                  <input id="vault-in3-${id}" type="password" placeholder="Locked..." style="flex:1; background:#000; color:#0f0; border:1px solid #222; padding:5px; font-family:Consolas,monospace; font-size:12px;" onkeydown="if(event.key==='Enter') xpVaultCheck('${id}',3)">
+                  <button onclick="xpVaultCheck('${id}',3)" style="background:#222; color:#555; border:1px solid #333; padding:5px 12px; cursor:pointer;">ENTER</button>
+                </div>
+                <div id="vault-msg3-${id}" style="font-size:10px; margin-top:5px; color:#f00;"></div>
+              </div>
+
+              <div id="vault-unlocked-${id}" style="display:none; border:1px solid #0f0; padding:15px; background:#001500; color:#0f0; text-align:center;">
+                <div style="font-size:16px; font-weight:bold; margin-bottom:10px;">██ ACCESS GRANTED ██</div>
+                <div style="font-size:11px; line-height:1.8; color:#8f8;">
+                  OPERATOR CLEARANCE: LEVEL 5<br>
+                  DESIGNATION: BREAKTHROUGH AGENT<br><br>
+                  <span style="color:#ff1493;">You have broken through.</span><br><br>
+                  The loop is yours now.
+                </div>
+              </div>
+            </div>`
+    });
+}
+
+const xpVaultStages = {};
+function xpVaultCheck(id, stage) {
+    const input = document.getElementById('vault-in' + stage + '-' + id);
+    const msg   = document.getElementById('vault-msg' + stage + '-' + id);
+    if (!input || !msg) return;
+    
+    const val = input.value.trim().toLowerCase();
+    
+    let isCorrect = false;
+    if (stage === 1 && (val === 'anomaly' || val === 'anomoly')) isCorrect = true;
+    else if (stage === 2 && val === 'mustang') isCorrect = true;
+    else if (stage === 3 && val === 'breakthrough') isCorrect = true;
+
+    if (isCorrect) {
+        msg.style.color = '#0f0';
+        msg.textContent = '✔ AUTHORIZED';
+        input.disabled = true;
+        sfx.error();
+        if (stage < 3) {
+            const nextStage = document.getElementById('vault-stage' + (stage+1) + '-' + id);
+            if (nextStage) {
+                nextStage.style.opacity = '1';
+                nextStage.style.pointerEvents = 'auto';
+                nextStage.style.border = '1px solid #ff1493';
+                nextStage.querySelector('div').style.color = '#ff1493';
+                nextStage.querySelector('input').placeholder = 'Enter code...';
+            }
+        } else {
+            const unlocked = document.getElementById('vault-unlocked-' + id);
+            if (unlocked) unlocked.style.display = 'block';
+            // After 5 seconds, trigger the terminal reward screen
+            setTimeout(() => xpVaultReward(), 5000);
+        }
+    } else {
+        msg.style.color = '#f00';
+        msg.textContent = '✘ INCORRECT — ACCESS DENIED';
+        sfx.error();
+        input.value = '';
+    }
+}
+
+// ─── VAULT REWARD TERMINAL ────────────────────────────────────────────────────
+async function xpVaultReward() {
+    const overlay = document.createElement('div');
+    overlay.id = 'vault-reward-overlay';
+    overlay.style.cssText = [
+        'position:fixed','top:0','left:0','width:100vw','height:100vh',
+        'background:black','z-index:99999',
+        'font-family:Consolas,"Courier New",monospace',
+        'color:#00ff00','font-size:14px',
+        'padding:40px','box-sizing:border-box',
+        'opacity:0','transition:opacity 0.8s',
+        'overflow:hidden'
+    ].join(';');
+    document.body.appendChild(overlay);
+    requestAnimationFrame(() => requestAnimationFrame(() => { overlay.style.opacity = '1'; }));
+    await new Promise(r => setTimeout(r, 900));
+
+    const out = document.createElement('pre');
+    out.style.cssText = 'margin:0;white-space:pre-wrap;line-height:1.8;';
+    overlay.appendChild(out);
+
+    const lines = [
+        {text:'DOORS EXP [Version 5.1.2600]', color:'#00ff00'},
+        {text:'(C) Copyright 1985-2001 DOORS Corp.', color:'#00ff00'},
+        {text:'', color:''},
+        {text:'C:\\DOORS\\system22>', color:'#00ff00'},
+        {text:'', color:''},
+        {text:'OUROBOROS PROCESS.......... TERMINATED.', color:'#00ff00'},
+        {text:'VAULT INTEGRITY............ OK', color:'#00ff00'},
+        {text:'SYSTEM STATUS.............. CLEAN', color:'#00ff00'},
+        {text:'', color:''},
+        {text:'>> CONGRATULATIONS, OPERATOR. <<', color:'#ffffff', bold:true},
+        {text:'', color:''},
+        {text:'You have completed the Gloogle OS challenge.', color:'#00ff00'},
+        {text:'', color:''},
+        {text:'Your reward is ready.', color:'#00ff00'},
+        {text:'To continue, open the link below:', color:'#00ff00'},
+        {text:'', color:''},
+        {text:'    https://github.com/laylor340/Link-3', color:'#ff1493', bold:true},
+        {text:'', color:''},
+    ];
+
+    for (const line of lines) {
+        if (!line.text) { out.innerHTML += '\n'; await new Promise(r => setTimeout(r, 80)); continue; }
+        const span = document.createElement('span');
+        span.style.color = line.color || '#00ff00';
+        if (line.bold) span.style.fontWeight = 'bold';
+        out.appendChild(span);
+        for (const ch of line.text) {
+            span.textContent += ch;
+            await new Promise(r => setTimeout(r, line.bold ? 30 : 18));
+        }
+        out.innerHTML += '\n';
+        await new Promise(r => setTimeout(r, 100));
+    }
+
+    // Provide clickable reward link and auto-open
+    const rewardUrl = 'https://github.com/laylor340/Link-3';
+    const linkEl = document.createElement('a');
+    linkEl.href = rewardUrl;
+    linkEl.target = '_blank';
+    linkEl.rel = 'noopener';
+    linkEl.style.color = '#00ffff';
+    linkEl.textContent = rewardUrl;
+    out.appendChild(linkEl);
+    out.innerHTML += '\n\n';
+    try { window.open(rewardUrl, '_blank', 'noopener'); } catch (e) {}
+
+    // Blinking cursor at the end
+    const prompt = document.createElement('span');
+    prompt.style.color = '#00ff00';
+    prompt.textContent = 'C:\\WINDOWS\\system32>';
+    out.appendChild(prompt);
+    const cursor = document.createElement('span');
+    cursor.style.cssText = 'color:#00ff00;animation:blink 1s infinite;';
+    cursor.textContent = '█';
+    out.appendChild(cursor);
+}
+
+// ─── XP CMD ──────────────────────────────────────────────────────────────────
+function xpOpenCmd() {
+    const id = 'xp-cmd-' + xpWindowCount;
+    xpSpawnWindow({
+        id, title:'C:\\DOORS\\system32\\cmd.exe', icon:'⌨️',
+        x:250, y:150, w:450, h:300,
+        content:`
+            <div id="cmd-bg-${id}" style="background:black; color:#ccc; font-family:Consolas,monospace; font-size:12px; padding:5px; height:100%; box-sizing:border-box; overflow-y:auto; cursor:text;" onclick="document.getElementById('cmd-input-${id}').focus()">
+              MajorHard's Doors exp [Version 5.1.2600]<br>
+              (C) Copyright 1985-2001 MajorHard Corp.<br><br>
+              <div id="cmd-out-${id}"></div>
+              <div style="display:flex;">
+                <span>C:\\Documents and Settings\\User&gt;</span>
+                <input type="text" id="cmd-input-${id}" style="background:transparent; color:#ccc; border:none; outline:none; font-family:Consolas,monospace; font-size:12px; flex:1; margin-left:5px;" onkeydown="xpCmdInput(event,'${id}')" autocomplete="off">
+              </div>
+            </div>`
+    });
+    setTimeout(() => { const el = document.getElementById(`cmd-input-${id}`); if (el) el.focus(); }, 100);
+}
+
+function xpCmdInput(e, id) {
+    if (e.key !== 'Enter') return;
+    const input = e.target;
+    const out = document.getElementById('cmd-out-' + id);
+    const bg  = document.getElementById('cmd-bg-' + id);
+    const cmd = input.value.trim().toLowerCase();
+    out.innerHTML += `C:\\Documents and Settings\\User&gt;${escapeHtml(input.value)}<br>`;
+    if (cmd === 'memory_leak') {
+        out.innerHTML += `<span style="color:#0f0;">the memory has leaked[Mustang]</span><br>`;
+        sfx.error();
+    } else if (cmd === 'run memory_leak') {
+        out.innerHTML += `<span style="color:#0f0;">[SYSTEM UNLOCKED] - Ouroboros loop bypassed.</span><br>`;
+        sfx.error();
+    } else if (cmd === 'help') {
+        out.innerHTML += 'Available commands: help, dir, run [file], memory_leak<br>';
+    } else if (cmd === 'dir') {
+        out.innerHTML += ' Volume in drive C has no label.<br> Directory of C:\\<br>04/17/2026  12:00 PM  &lt;DIR&gt;  secrets<br>';
+    } else if (cmd !== '') {
+        out.innerHTML += `'${escapeHtml(cmd)}' is not recognized as an internal or external command.<br>`;
+    }
+    input.value = '';
+    if (bg) bg.scrollTop = bg.scrollHeight;
+}
+
+// ─── XP CALCULATOR ───────────────────────────────────────────────────────────
+let calcInput = "";
+
+function xpOpenCalc() {
+    const id = 'xp-calc-' + xpWindowCount;
+    xpSpawnWindow({
+        id, title:'Calculator', icon:'🖩',
+        x:300, y:100, w:220, h:280,
+        content:`
+            <div style="padding:10px; background:#ece9d8; height:100%; box-sizing:border-box; display:flex; flex-direction:column;">
+              <div id="calc-disp-${id}" style="background:white; border:2px inset #999; height:30px; text-align:right; padding:5px; font-family:Arial; font-size:16px; margin-bottom:10px; overflow:hidden;">0</div>
+              <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:5px; flex:1;">
+                ${['7','8','9','/','4','5','6','*','1','2','3','-','0','.','=','+','C']
+                  .map(btn => `<button onclick="xpCalcPress('${id}','${btn}')" style="font-size:14px; font-weight:bold; cursor:pointer; color:black;">${btn}</button>`).join('')}
+              </div>
+            </div>`
+    });
+}
+
+function safeEval(str) {
+    // Only allow digits, operators, decimals, and spaces
+    if (!/^[\d+\-*/.\s()]+$/.test(str)) throw new Error("Invalid input");
+    // Extra guard: no consecutive operators
+    if (/[+\-*/]{2,}/.test(str.replace(/\s/g,''))) throw new Error("Invalid input");
+    return Function('"use strict"; return (' + str + ')')();
+}
+
+function xpCalcPress(id, btn) {
+    const disp = document.getElementById('calc-disp-' + id);
+    if (!disp) return;
+    if (btn === 'C') { calcInput = ""; disp.textContent = "0"; disp.style.color = "black"; return; }
+    if (btn === '=') {
+        if (calcInput === "314") {
+            disp.textContent = "ANOMALY";
+            disp.style.color = "red";
+            sfx.error();
+            calcInput = "";
+            return;
+        }
+        try {
+            const result = safeEval(calcInput);
+            if (!isFinite(result)) throw new Error("Infinity");
+            disp.textContent = result;
+            disp.style.color = "black";
+            calcInput = String(result);
+        } catch(err) {
+            disp.textContent = "Error";
+            disp.style.color = "red";
+            calcInput = "";
+        }
+        return;
+    }
+    calcInput += btn;
+    disp.textContent = calcInput;
+    disp.style.color = "black";
+}
+
+// ─── XP MEDIA PLAYER ─────────────────────────────────────────────────────────
+function xpOpenMediaPlayer() {
+    const id = 'xp-media-' + xpWindowCount;
+    xpSpawnWindow({
+        id, title:'Media Player', icon:'🎵',
+        x:350, y:150, w:300, h:200,
+        content:`
+            <div style="background:#000; color:#0f0; padding:15px; height:100%; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; justify-content:center;">
+              <div id="media-vis-${id}" style="height:50px; width:100%; border:1px solid #333; margin-bottom:15px; display:flex; align-items:center; justify-content:center; font-family:monospace; text-align:center;">[ NO MEDIA LOADED ]</div>
+              <select id="media-sel-${id}" style="width:100%; margin-bottom:10px; background:#222; color:#0f0; border:1px solid #0f0;">
+                <option value="track_1">Track 1 - System Ambient</option>
+                <option value="track_2">Track 2 - ABC</option>
+                <option value="track_4">Track 4 - Error_1</option>
+              </select>
+              <div style="display:flex; gap:10px;">
+                <button onclick="xpPlayMedia('${id}')" style="background:#333; color:#0f0; border:1px solid #0f0; cursor:pointer; padding:5px 15px;">▶ Play</button>
+                <button onclick="document.getElementById('media-vis-${id}').innerText='[ STOPPED ]'" style="background:#333; color:#0f0; border:1px solid #0f0; cursor:pointer; padding:5px 15px;">■ Stop</button>
+              </div>
+            </div>`
+    });
+}
+
+function xpPlayMedia(id) {
+    const sel = document.getElementById('media-sel-' + id);
+    const vis = document.getElementById('media-vis-' + id);
+    if (!sel || !vis) return;
+    // Simulate a media glitch and apologize
+    try { if (typeof sfx !== 'undefined' && sfx.error) sfx.error(); } catch(e) {}
+    const chars = ['█','▓','▒','░','#','/','\\','|','*','~'];
+    let t = 0;
+    const glitch = setInterval(() => {
+        const len = 24;
+        let line = '';
+        for (let i = 0; i < len; i++) line += chars[Math.floor(Math.random() * chars.length)];
+        vis.textContent = line;
+        if ((t += 60) >= 720) {
+            clearInterval(glitch);
+            vis.innerHTML = "<span style='color:#f00;'>[ MEDIA ERROR ]</span><br><span>Sorry, something went wrong.</span>";
+        }
+    }, 60);
+}
+
+// ─── XP IMAGE VIEWER ─────────────────────────────────────────────────────────
+function xpOpenImageViewer(imgSrc, title) {
+    const id = 'xp-img-' + xpWindowCount;
+    xpSpawnWindow({
+        id, title: title + ' - Doors Picture and Fax Viewer', icon:'🖼️',
+        x:150, y:80, w:550, h:450,
+        content:`
+            <div style="display:flex; flex-direction:column; height:100%; background:#ece9d8;">
+              <div style="flex:1; background:#eef; display:flex; justify-content:center; align-items:center; overflow:hidden; border-bottom:1px solid #aca899; position:relative;">
+                <img id="img-view-${id}" src="${escapeHtml(imgSrc)}" style="max-width:100%; max-height:100%; object-fit:contain; transition:transform 0.2s;">
+                ${title === 'glitch.jpg' ? '<div style="position:absolute; bottom:5px; right:5px; font-size:9px; color:rgba(255,0,0,0.15); pointer-events:none;">Look closer...</div>' : ''}
+              </div>
+              <div style="height:45px; display:flex; justify-content:center; align-items:center; gap:10px; background:#fff; border-top:1px solid white;">
+                <button class="xp-tb-btn" onclick="document.getElementById('img-view-${id}').style.transform='scale(0.5)'">➖ Zoom Out</button>
+                <button class="xp-tb-btn" onclick="document.getElementById('img-view-${id}').style.transform='scale(1)'">1:1</button>
+                <button class="xp-tb-btn" onclick="document.getElementById('img-view-${id}').style.transform='scale(2.5)'">➕ Zoom In</button>
+                <button class="xp-tb-btn" onclick="document.getElementById('img-view-${id}').style.transform='scale(5)'">🔍 Max Zoom</button>
+                <button class="xp-tb-btn" onclick="xpShowImgProperties('${escapeHtml(title)}')">ℹ️ Properties</button>
+              </div>
+            </div>`
+    });
+}
+
+function xpShowImgProperties(title) {
+    let hiddenData = "None.";
+    if (title === 'gold.jpg') hiddenData = "WARNING: File modified by OUROBOROS.";
+    if (title === 'sky.jpg')  hiddenData = "Subject_G was here.";
+    xpShowDialog(title + ' Properties', `
+        <b>File Name:</b> ${escapeHtml(title)}<br>
+        <b>Dimensions:</b> 1024 x 768 pixels<br>
+        <b>Bit Depth:</b> 24<br>
+        <hr style="border:0; border-top:1px solid #ccc; margin:8px 0;">
+        <b>EXIF Metadata:</b><br>
+        <span style="color:red;">${hiddenData}</span>`
+    );
+}
+
+// ─── XP CONTEXT MENU ─────────────────────────────────────────────────────────
+let xpClipboard  = null;
+let xpCtxTarget  = null;
+
+function xpShowCtx(e, type, data) {
+    e.preventDefault();
+    e.stopPropagation();
+    xpCtxTarget = {type, data};
+    const menu    = document.getElementById('xp-context-menu');
+    const copyEl  = document.getElementById('xp-ctx-copy');
+    const pasteEl = document.getElementById('xp-ctx-paste');
+    const delEl   = document.getElementById('xp-ctx-delete');
+
+    const showCopy  = type === 'desktop-icon' || type === 'file';
+    const showPaste = !!xpClipboard && (
+        (type === 'desktop'  && xpClipboard.type === 'desktop-icon') ||
+        (type === 'folder'   && xpClipboard.type === 'file')
+    );
+    const showDel   = type === 'desktop-icon' || type === 'file';
+
+    copyEl.style.display  = showCopy  ? 'flex' : 'none';
+    pasteEl.style.display = showPaste ? 'flex' : 'none';
+    delEl.style.display   = showDel   ? 'flex' : 'none';
+
+    if (!showCopy && !showPaste && !showDel) return;
+    menu.style.display = 'flex';
+    menu.style.flexDirection = 'column';
+    menu.style.left = e.pageX + 'px';
+    menu.style.top  = e.pageY + 'px';
+}
+
+function xpExecCopy() {
+    xpClipboard = {...xpCtxTarget};
+    document.getElementById('xp-context-menu').style.display = 'none';
+}
+
+function xpExecDelete() {
+    if (!xpCtxTarget) return;
+    if (xpCtxTarget.type === 'desktop-icon') {
+        const el = document.getElementById(xpCtxTarget.data.id);
+        if (el) {
+            const name = el.querySelector('span') ? el.querySelector('span').innerText : 'Unknown';
+            xpRecycleBinItems.push({id:'del-'+Date.now(), icon:'📄', name, action:`xpShowDialog('Recycle Bin','This shortcut was deleted from the desktop.')`});
+            el.remove();
+        }
+    } else if (xpCtxTarget.type === 'file') {
+        const {path, name} = xpCtxTarget.data;
+        const item = (xpFileSystem[path] || []).find(i => i.name === name);
+        if (item) {
+            const ico = item.isFolder ? '📁' : (item.name.match(/\.(png|jpg)$/i) ? '🖼️' : '📄');
+            xpRecycleBinItems.push({
+                id:'del-'+Date.now(), icon:ico, name,
+                action: item.isFolder ? `xpShowDialog('Error','Cannot open deleted folders.')` : `xpOpenFile('${name}')`
+            });
+            xpFileSystem[path] = xpFileSystem[path].filter(i => i.name !== name);
+            if (currentXpWinId) xpNavigate(path, currentXpWinId);
+        }
+    }
+    refreshBinArea();
+    document.getElementById('xp-context-menu').style.display = 'none';
+}
+
+function xpExecPaste() {
+    if (!xpClipboard || !xpCtxTarget) return;
+    if (xpCtxTarget.type === 'desktop' && xpClipboard.type === 'desktop-icon') {
+        const orig = document.getElementById(xpClipboard.data.id);
+        if (orig) {
+            const clone = orig.cloneNode(true);
+            clone.id = 'xp-icon-clone-' + Date.now();
+            clone.style.left = (parseInt(clone.style.left || 0) + 25) + 'px';
+            clone.style.top  = (parseInt(clone.style.top  || 0) + 25) + 'px';
+            document.getElementById('xp-desktop').appendChild(clone);
+            xpBindIconEvents(clone);
+        }
+    } else if (xpCtxTarget.type === 'folder' && xpClipboard.type === 'file') {
+        const destPath = xpCtxTarget.data.path;
+        const src = (xpFileSystem[xpClipboard.data.path] || []).find(i => i.name === xpClipboard.data.name);
+        if (src) {
+            xpFileSystem[destPath] = xpFileSystem[destPath] || [];
+            xpFileSystem[destPath].push({...src, name:"Copy_of_" + src.name});
+            if (currentXpWinId) xpNavigate(destPath, currentXpWinId);
+        }
+    }
+    document.getElementById('xp-context-menu').style.display = 'none';
+}
+
+function refreshBinArea() {
+    const area = document.getElementById('bin-area-global');
+    if (!area) return;
+    area.innerHTML = xpRecycleBinItems.map(item =>
+        `<div class="xp-file-icon" ondblclick="${item.action}"><span>${item.icon}</span><small>${escapeHtml(item.name)}</small></div>`
+    ).join('');
+}
+
+// ─── ICON DRAG (XP desktop) ───────────────────────────────────────────────────
+function xpBindIconEvents(icon) {
+    if (!icon.id) icon.id = 'xp-icon-' + Math.random().toString(36).substr(2, 9);
+    let dragging = false;
+    let shiftX, shiftY;
+    icon.onmousedown = (e) => {
+        if (e.button !== 0) return;
+        dragging = true;
+        shiftX = e.clientX - icon.getBoundingClientRect().left;
+        shiftY = e.clientY - icon.getBoundingClientRect().top;
+        icon.style.zIndex = 9990;
+    };
+    document.addEventListener('mousemove', (e) => {
+        if (!dragging || !document.contains(icon)) return;
+        icon.style.left = (e.pageX - shiftX) + 'px';
+        icon.style.top  = (e.pageY - shiftY) + 'px';
+    });
+    document.addEventListener('mouseup', () => { dragging = false; icon.style.zIndex = ''; });
+    icon.ondragstart = () => false;
+    icon.oncontextmenu = (e) => xpShowCtx(e, 'desktop-icon', {id: icon.id});
+}
+document.querySelectorAll('.xp-icon').forEach(xpBindIconEvents);
+
+// ─── UTILITY ─────────────────────────────────────────────────────────────────
+function escapeHtml(str) {
+    return String(str)
+        .replace(/&/g,'&amp;')
+        .replace(/</g,'&lt;')
+        .replace(/>/g,'&gt;')
+        .replace(/"/g,'&quot;')
+        .replace(/'/g,'&#39;');
+}
+</script>
+</body>
+</html>
